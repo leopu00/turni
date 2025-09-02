@@ -1,34 +1,40 @@
 import 'package:flutter/foundation.dart';
 
-/// Simple in-memory store to share selected availability
-/// between the Employee and Boss pages (no DB for now).
+/// In-memory store: disponibilità per più persone (key = employee)
 class AvailabilityStore extends ChangeNotifier {
   AvailabilityStore._();
   static final AvailabilityStore instance = AvailabilityStore._();
 
   DateTime? _startMonday;
-  final List<DateTime> _selectedDays = []; // sorted
+  final Map<String, List<DateTime>> _byEmployee = {}; // ordinato per dipendente
 
   DateTime? get startMonday => _startMonday;
-  List<DateTime> get selectedDays => List.unmodifiable(_selectedDays);
+  List<String> get employees => _byEmployee.keys.toList()..sort();
 
-  /// Set the period (next Monday) and the selected days
+  List<DateTime> selectedFor(String employee) =>
+      List.unmodifiable(_byEmployee[employee] ?? const []);
+
+  bool get hasAnySelection => _byEmployee.values.any((l) => l.isNotEmpty);
+
   void setSelection({
+    required String employee,
     required DateTime startMonday,
     required List<DateTime> selectedDays,
   }) {
     _startMonday = DateTime(startMonday.year, startMonday.month, startMonday.day);
-    _selectedDays
-      ..clear()
-      ..addAll(selectedDays..sort());
+    selectedDays.sort();
+    _byEmployee[employee] = List<DateTime>.from(selectedDays);
     notifyListeners();
   }
 
-  void clear() {
+  void clearEmployee(String employee) {
+    _byEmployee.remove(employee);
+    notifyListeners();
+  }
+
+  void clearAll() {
     _startMonday = null;
-    _selectedDays.clear();
+    _byEmployee.clear();
     notifyListeners();
   }
-
-  bool get hasSelection => _selectedDays.isNotEmpty;
 }

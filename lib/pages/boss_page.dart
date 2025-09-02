@@ -30,57 +30,77 @@ class _BossPageState extends State<BossPage> {
 
   @override
   Widget build(BuildContext context) {
-    final df = DateFormat('EEE dd MMM', 'it_IT');
+    final dfLong = DateFormat('EEE dd MMM', 'it_IT');
+    final dfShort = DateFormat('EEE dd', 'it_IT');
 
-    Widget buildBody() {
-      if (!store.hasSelection) {
-        return const Center(
+    if (!store.hasAnySelection) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text("Boss"),
+          actions: [
+            IconButton(
+              tooltip: 'Pulisci tutto',
+              onPressed: null,
+              icon: const Icon(Icons.delete_outline),
+            ),
+          ],
+        ),
+        body: const Center(
           child: Text(
             'Nessuna disponibilità ricevuta.\nChiedi ai dipendenti di selezionare i giorni.',
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 16),
           ),
-        );
-      }
+        ),
+      );
+    }
 
-      final start = store.startMonday!;
-      final all = store.selectedDays;
-      final week1End = start.add(const Duration(days: 6));
-      final isWeek1 = (DateTime d) => !d.isAfter(week1End);
+    bool sameDay(DateTime a, DateTime b) =>
+        a.year == b.year && a.month == b.month && a.day == b.day;
 
-      final w1 = all.where(isWeek1).toList();
-      final w2 = all.where((d) => !isWeek1(d)).toList();
+    final start = store.startMonday!;
+    final allEmployees = store.employees;
 
-      List<Widget> section(String title, List<DateTime> days) {
-        if (days.isEmpty) {
-          return [
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
-            ),
-            const Text('Nessun giorno selezionato'),
-            const SizedBox(height: 12),
-          ];
-        }
-        return [
+    // Costruisci le date per settimana 1 e 2
+    final week1Dates = List.generate(7, (i) => start.add(Duration(days: i)));
+    final week2Dates = List.generate(7, (i) => start.add(Duration(days: 7 + i)));
+
+    // Helper per costruire una DataTable settimana
+    Widget weekTable(String title, List<DateTime> days) {
+      final columns = <DataColumn>[
+        const DataColumn(label: Text('Rider')),
+        ...days.map((d) => DataColumn(label: Text(dfShort.format(d))))
+      ];
+
+      final rows = allEmployees.map((e) {
+        final sel = store.selectedFor(e);
+        return DataRow(cells: [
+          DataCell(Text(e)),
+          ...days.map((d) {
+            final picked = sel.any((x) => sameDay(x, d));
+            return DataCell(
+              Icon(
+                picked ? Icons.check_circle : Icons.cancel,
+                size: 18,
+                color: picked ? Colors.teal : Theme.of(context).disabledColor,
+              ),
+            );
+          }),
+        ]);
+      }).toList();
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
+            padding: const EdgeInsets.only(top: 16, bottom: 8),
             child: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
           ),
-          ...days.map((d) => ListTile(
-                leading: const Icon(Icons.event_available),
-                title: Text(df.format(d)),
-                subtitle: const Text('Turno 19:00 – 23:00'),
-              )),
-          const SizedBox(height: 12),
-        ];
-      }
-
-      return ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          ...section('Settimana 1', w1),
-          ...section('Settimana 2', w2),
+          // Scroll orizzontale nel caso la tabella sfori lo schermo
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: DataTable(columns: columns, rows: rows),
+          ),
         ],
       );
     }
@@ -90,13 +110,67 @@ class _BossPageState extends State<BossPage> {
         title: const Text("Boss"),
         actions: [
           IconButton(
-            tooltip: 'Pulisci selezioni',
-            onPressed: store.hasSelection ? store.clear : null,
+            tooltip: 'Pulisci tutto',
+            onPressed: store.hasAnySelection ? store.clearAll : null,
             icon: const Icon(Icons.delete_outline),
           ),
         ],
       ),
-      body: buildBody(),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Text(
+            'Periodo: ${DateFormat('dd MMM', 'it_IT').format(start)} – '
+            '${DateFormat('dd MMM', 'it_IT').format(start.add(const Duration(days: 13)))}',
+            style: TextStyle(color: Theme.of(context).hintColor),
+          ),
+          const SizedBox(height: 8),
+
+          // --- Panoramica per dipendente (lista) ---
+          for (final e in allEmployees) ...{
+            const Divider(),
+            Row(
+              children: [
+                const Icon(Icons.person_outline),
+                const SizedBox(width: 8),
+                Text(e, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                const Spacer(),
+                IconButton(
+                  tooltip: 'Pulisci ' + e,
+                  onPressed: () => setState(() => store.clearEmployee(e)),
+                  icon: const Icon(Icons.delete_sweep_outlined),
+                ),
+              ],
+            ),
+            // Settimane come lista
+            ...store
+                .selectedFor(e)
+                .where((d) => d.isBefore(start.add(const Duration(days: 7))))
+                .map((d) => ListTile(
+                      leading: const Icon(Icons.event_available),
+                      title: Text(dfLong.format(d)),
+                      subtitle: const Text('Turno 19:00 – 23:00'),
+                    )),
+            ...store
+                .selectedFor(e)
+                .where((d) => !d.isBefore(start.add(const Duration(days: 7))))
+                .map((d) => ListTile(
+                      leading: const Icon(Icons.event_available),
+                      title: Text(dfLong.format(d)),
+                      subtitle: const Text('Turno 19:00 – 23:00'),
+                    )),
+          },
+
+          const SizedBox(height: 16),
+          const Divider(thickness: 1.2),
+          const SizedBox(height: 8),
+          const Text('Panoramica (tabella)', style: TextStyle(fontWeight: FontWeight.bold)),
+
+          // --- Tabelle per settimana ---
+          weekTable('Settimana 1', week1Dates),
+          weekTable('Settimana 2', week2Dates),
+        ],
+      ),
     );
   }
 }

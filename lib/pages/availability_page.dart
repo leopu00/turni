@@ -3,7 +3,8 @@ import 'package:intl/intl.dart';
 import '../data/availability_store.dart';
 
 class AvailabilityPage extends StatefulWidget {
-  const AvailabilityPage({super.key});
+  final String employee;
+  const AvailabilityPage({super.key, required this.employee});
 
   @override
   State<AvailabilityPage> createState() => _AvailabilityPageState();
@@ -51,25 +52,21 @@ class _AvailabilityPageState extends State<AvailabilityPage> {
       return;
     }
 
-    // Costruisci la lista di DateTime selezionate
-    final selectedDates = _days
-        .where((d) => _selected.contains(_keyForDate(d)))
-        .toList();
+    final selectedDates =
+        _days.where((d) => _selected.contains(_keyForDate(d))).toList();
 
-    // Salva nello store in memoria
     AvailabilityStore.instance.setSelection(
+      employee: widget.employee,
       startMonday: _startMonday,
       selectedDays: selectedDates,
     );
 
-    // Feedback a schermo
     final df = DateFormat('EEE dd MMM', 'it_IT');
     final chosen = selectedDates.map((d) => df.format(d)).join(', ');
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Disponibilità 19:00–23:00 per: $chosen')),
+      SnackBar(content: Text('${widget.employee}: 19:00–23:00 per: $chosen')),
     );
 
-    // Torna alla pagina precedente (opzionale ma comodo)
     Future.microtask(() {
       if (mounted) Navigator.pop(context);
     });
@@ -139,7 +136,7 @@ class _AvailabilityPageState extends State<AvailabilityPage> {
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Disponibilità — prossime 2 settimane')),
+      appBar: AppBar(title: Text('Disponibilità — ${widget.employee}')),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -154,7 +151,7 @@ class _AvailabilityPageState extends State<AvailabilityPage> {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
-                'Seleziona i giorni in cui vuoi lavorare (19:00–23:00)\n'
+                'Seleziona i giorni per ${widget.employee} (19:00–23:00)\n'
                 'Periodo: ${dfRange.format(week1.first)} – ${dfRange.format(week2.last)} (da lunedì)',
                 textAlign: TextAlign.center,
                 style: const TextStyle(fontSize: 14),

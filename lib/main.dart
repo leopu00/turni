@@ -47,12 +47,38 @@ class HomePage extends StatelessWidget {
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const AvailabilityPage()),
+                  MaterialPageRoute(
+                    builder: (_) => const AvailabilityPage(employee: 'Rider 1'),
+                  ),
                 );
               },
-              child: const Text('Sono un dipendente'),
+              child: const Text('Sono Rider 1'),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 12),
+            FilledButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const AvailabilityPage(employee: 'Rider 2'),
+                  ),
+                );
+              },
+              child: const Text('Sono Rider 2'),
+            ),
+            const SizedBox(height: 12),
+            FilledButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const AvailabilityPage(employee: 'Rider 3'),
+                  ),
+                );
+              },
+              child: const Text('Sono Rider 3'),
+            ),
+            const SizedBox(height: 24),
             OutlinedButton(
               onPressed: () {
                 Navigator.push(
