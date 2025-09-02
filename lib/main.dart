@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'pages/availability_page.dart';
 import 'pages/boss_page.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:intl/date_symbol_data_local.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await initializeDateFormatting('it_IT', null);
   runApp(const TurniApp());
 }
 
@@ -17,6 +21,12 @@ class TurniApp extends StatelessWidget {
         useMaterial3: true,
         colorSchemeSeed: Colors.teal,
       ),
+      locale: const Locale('it', 'IT'),
+      supportedLocales: const [
+        Locale('it', 'IT'),
+        Locale('en', 'US'),
+      ],
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
       home: const HomePage(),
     );
   }
