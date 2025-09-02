@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
-import 'pages/availability_page.dart';
-import 'pages/boss_page.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
+
+import 'data/session_store.dart';
+import 'data/login_page.dart';
+import 'pages/availability_page.dart';
+import 'pages/boss_page.dart';
+import 'pages/employee_home_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -15,82 +19,41 @@ class TurniApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Turni',
-      theme: ThemeData(
-        useMaterial3: true,
-        colorSchemeSeed: Colors.teal,
-      ),
-      locale: const Locale('it', 'IT'),
-      supportedLocales: const [
-        Locale('it', 'IT'),
-        Locale('en', 'US'),
-      ],
-      localizationsDelegates: GlobalMaterialLocalizations.delegates,
-      home: const HomePage(),
+    final session = SessionStore.instance;
+    return AnimatedBuilder(
+      animation: session,
+      builder: (context, _) {
+        return MaterialApp(
+          title: 'Turni',
+          debugShowCheckedModeBanner: false,
+          theme: ThemeData(
+            useMaterial3: true,
+            colorSchemeSeed: Colors.teal,
+          ),
+          locale: const Locale('it', 'IT'),
+          supportedLocales: const [
+            Locale('it', 'IT'),
+            Locale('en', 'US'),
+          ],
+          localizationsDelegates: GlobalMaterialLocalizations.delegates,
+          home: _homeFor(session),
+        );
+      },
     );
   }
-}
 
-class HomePage extends StatelessWidget {
-  const HomePage({super.key});
+  Widget _homeFor(SessionStore session) {
+    // Not logged in → Login page
+    if (!session.isLoggedIn) {
+      return const LoginPage();
+    }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Turni - Home')),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            FilledButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const AvailabilityPage(employee: 'Rider 1'),
-                  ),
-                );
-              },
-              child: const Text('Sono Rider 1'),
-            ),
-            const SizedBox(height: 12),
-            FilledButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const AvailabilityPage(employee: 'Rider 2'),
-                  ),
-                );
-              },
-              child: const Text('Sono Rider 2'),
-            ),
-            const SizedBox(height: 12),
-            FilledButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const AvailabilityPage(employee: 'Rider 3'),
-                  ),
-                );
-              },
-              child: const Text('Sono Rider 3'),
-            ),
-            const SizedBox(height: 24),
-            OutlinedButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const BossPage()),
-                );
-              },
-              child: const Text('Sono un boss'),
-            ),
-          ],
-        ),
-      ),
-    );
+    // Boss → Boss page (panoramica)
+    if (session.isBoss) {
+      return const BossPage();
+    }
+
+    // Employee → Employee home
+    return const EmployeeHomePage();
   }
 }

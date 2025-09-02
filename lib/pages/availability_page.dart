@@ -16,12 +16,24 @@ class _AvailabilityPageState extends State<AvailabilityPage> {
   final Set<String> _selected = {}; // yyyy-MM-dd dei giorni selezionati
 
   static String _keyForDate(DateTime d) => DateFormat('yyyy-MM-dd').format(d);
+  static bool _sameYMD(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
 
   @override
   void initState() {
     super.initState();
     _startMonday = _computeNextMonday(DateTime.now());
     _days = List.generate(14, (i) => _startMonday.add(Duration(days: i)));
+    // Precarica eventuali selezioni salvate per questo dipendente
+    final store = AvailabilityStore.instance;
+    final storedStart = store.startMonday;
+    if (storedStart != null && _sameYMD(storedStart, _startMonday)) {
+      final already = store.selectedFor(widget.employee);
+      final allowedKeys = _days.map(_keyForDate).toSet();
+      _selected
+        ..clear()
+        ..addAll(already.map(_keyForDate).where(allowedKeys.contains));
+    }
   }
 
   DateTime _computeNextMonday(DateTime from) {

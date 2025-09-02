@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../data/availability_store.dart';
+import '../data/session_store.dart';
+import '../data/login_page.dart';
 import 'requirements_page.dart';
 import 'riders_overview_page.dart';
 
@@ -66,6 +68,17 @@ class _BossPageState extends State<BossPage> {
             tooltip: 'Pulisci tutto',
             onPressed: store.hasAnySelection ? store.clearAll : null,
             icon: const Icon(Icons.delete_outline),
+          ),
+          IconButton(
+            tooltip: 'Logout',
+            onPressed: () {
+              SessionStore.instance.logout();
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (_) => const LoginPage()),
+                (route) => false,
+              );
+            },
+            icon: const Icon(Icons.logout),
           ),
         ],
       ),
