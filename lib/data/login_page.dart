@@ -6,6 +6,8 @@ import 'auth_dao.dart';
 import '../pages/boss_page.dart';
 
 import '../pages/employee_home_page.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../data/remote/supabase_client.dart';
 
 enum _Role { boss, employee }
 
@@ -44,6 +46,47 @@ class _LoginPageState extends State<LoginPage> {
     final u = await AuthDao.instance.verifyLogin(username, password);
     if (u == null) return null;
     return u.role == 'boss' ? _Role.boss : _Role.employee;
+  }
+
+  Future<void> _signUpEmail() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _submitting = true);
+    final email = _userCtrl.text.trim();
+    final password = _passCtrl.text;
+    try {
+      // Se Supabase non è inizializzato lancerà/mostrerà errore
+      final client = Supabase.instance.client;
+      await client.auth.signUp(email: email, password: password);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sign up successful. Check your email to verify your account.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Sign up error: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  Future<void> _signInWithGoogle() async {
+    setState(() => _submitting = true);
+    try {
+      final client = Supabase.instance.client;
+      await client.auth.signInWithOAuth(
+        OAuthProvider.google,
+        // opzionale: imposta redirect per web; se non impostato, Supabase usa quello di default
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Google Sign-In error: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
   }
 
   Future<void> _handleLogin() async {
@@ -115,7 +158,7 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Turni — Login')),
+      appBar: AppBar(title: const Text('Turni')),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Center(
@@ -125,7 +168,7 @@ class _LoginPageState extends State<LoginPage> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 const Text(
-                  'Accedi',
+                  'Sign in',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 16),
@@ -139,7 +182,7 @@ class _LoginPageState extends State<LoginPage> {
                           TextFormField(
                             controller: _userCtrl,
                             decoration: const InputDecoration(
-                              labelText: 'Username',
+                              labelText: 'Email or username',
                               border: OutlineInputBorder(),
                             ),
                             textInputAction: TextInputAction.next,
@@ -165,6 +208,21 @@ class _LoginPageState extends State<LoginPage> {
                                   : const Icon(Icons.login),
                               label: const Text('Accedi'),
                             ),
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              TextButton(
+                                onPressed: _submitting ? null : _signUpEmail,
+                                child: const Text('Create account'),
+                              ),
+                              const Spacer(),
+                              FilledButton.icon(
+                                onPressed: _submitting ? null : _signInWithGoogle,
+                                icon: const Icon(Icons.g_mobiledata),
+                                label: const Text('Continue with Google'),
+                              ),
+                            ],
                           ),
                         ],
                       ),

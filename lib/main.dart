@@ -4,6 +4,8 @@ import 'package:intl/date_symbol_data_local.dart';
 
 import 'data/session_store.dart';
 import 'data/login_page.dart';
+import 'data/remote/supabase_client.dart';
+  
 import 'pages/availability_page.dart';
 import 'pages/boss_page.dart';
 import 'pages/employee_home_page.dart';
@@ -11,6 +13,7 @@ import 'pages/employee_home_page.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('it_IT', null);
+  await AppSupabase.instance.init();
   runApp(const TurniApp());
 }
 
