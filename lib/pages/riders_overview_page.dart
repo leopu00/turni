@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../data/availability_store.dart';
+import '../data/session_store.dart';
+import '../data/login_page.dart';
 
 /// Vista per il Boss: elenco disponibilità per dipendente, divise in Settimana 1/2.
 class RidersOverviewPage extends StatelessWidget {
@@ -16,7 +19,24 @@ class RidersOverviewPage extends StatelessWidget {
         final start = store.startMonday;
         if (start == null || !store.hasAnySelection) {
           return Scaffold(
-            appBar: AppBar(title: const Text('Disponibilità per dipendente')),
+            appBar: AppBar(
+              title: const Text('Disponibilità per dipendente'),
+              actions: [
+                IconButton(
+                  tooltip: 'Logout',
+                  icon: const Icon(Icons.logout),
+                  onPressed: () async {
+                    try { await Supabase.instance.client.auth.signOut(); } catch (_) {}
+                    SessionStore.instance.logout();
+                    Navigator.pushAndRemoveUntil(
+                      context,
+                      MaterialPageRoute(builder: (_) => const LoginPage(fromLogout: true)),
+                      (route) => false,
+                    );
+                  },
+                ),
+              ],
+            ),
             body: const Center(
               child: Text(
                 'Nessuna disponibilità ricevuta.\nChiedi ai dipendenti di selezionare i giorni.',
@@ -77,7 +97,24 @@ class RidersOverviewPage extends StatelessWidget {
         }
 
         return Scaffold(
-          appBar: AppBar(title: const Text('Disponibilità per dipendente')),
+          appBar: AppBar(
+            title: const Text('Disponibilità per dipendente'),
+            actions: [
+              IconButton(
+                tooltip: 'Logout',
+                icon: const Icon(Icons.logout),
+                onPressed: () async {
+                  try { await Supabase.instance.client.auth.signOut(); } catch (_) {}
+                  SessionStore.instance.logout();
+                  Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(builder: (_) => const LoginPage(fromLogout: true)),
+                    (route) => false,
+                  );
+                },
+              ),
+            ],
+          ),
           body: ListView(
             padding: const EdgeInsets.all(16),
             children: [

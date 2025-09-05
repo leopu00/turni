@@ -4,6 +4,7 @@ import '../data/availability_store.dart';
 import '../data/login_page.dart';
 import 'availability_page.dart';
 import 'my_availability_page.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 
 class EmployeeHomePage extends StatelessWidget {
@@ -22,14 +23,17 @@ class EmployeeHomePage extends StatelessWidget {
         actions: [
           IconButton(
             tooltip: 'Logout',
-            onPressed: () {
-            SessionStore.instance.logout();
-            Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (_) => const LoginPage()),
-                (route) => false,
-            );
-            },
             icon: const Icon(Icons.logout),
+            onPressed: () async {
+              try { await Supabase.instance.client.auth.signOut(); } catch (_) {}
+              SessionStore.instance.logout();
+              if (!context.mounted) return;
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (_) => const LoginPage(fromLogout: true)),
+                (route) => false,
+              );
+            },
           ),
         ],
       ),
