@@ -1,5 +1,82 @@
 🗓️ **Turni**
 
+Turni is an application for managing and distributing work shifts in a digital, transparent, and scalable way.  
+The goal is to replace manual and often chaotic processes with a fast, clear system shared between employees and managers.
+
+⸻
+
+📝 **Description**
+
+Every organization that manages shifts (a pizzeria with delivery riders, a restaurant with waiters, a shop with staff, etc.) faces the same problem: collecting workers' availabilities and distributing shifts while respecting fairness rules, priorities, or preferences.
+
+Shifts was created to simplify this process:  
+- **Employees** enter their availabilities through the app.  
+- The **manager** (boss, supervisor, shift leader) sees an overview of all availabilities and assigns shifts.  
+- Distribution rules can be:  
+  - Algorithm-guided randomness: a random but controlled selection that avoids extreme imbalances (e.g., an employee being excluded for too many weeks in a row).  
+  - Priority by frequency: those who provide more availability get priority.  
+  - Manual decision by the **manager**: the boss decides directly, with transparency on the applied criteria.
+
+In this way, the app guarantees a process that is:  
+- **Transparent**: everyone can see the history of selections and the criteria used.  
+- **Fair**: the rules are shared and do not depend on favoritism.  
+- **Scalable**: it works for both a small pizzeria and a retail chain.
+
+⸻
+
+✨ **Features**
+
+**Authentication**  
+- Login with email and password  
+- Quick login via Google  
+
+**Employees**  
+- Enter and edit their own availabilities  
+- View their assigned shifts and history  
+
+**Managers**  
+- Overview of all availabilities  
+- Assign shifts based on defined rules (controlled randomness, priority, manual choice)  
+
+**History**  
+- Record of past shifts, with criteria used for selection
+
+⸻
+
+🛠️ **Technologies**
+
+- **Flutter** → cross-platform interface (Web, Android, iOS, Desktop)  
+- **Supabase** → authentication and Postgres database with Row Level Security  
+- **Dart** → main language of the app
+
+⸻
+
+🌍 **Practical example**
+
+In a pizzeria:  
+- Riders enter the days they can work.  
+- The manager sees all availabilities and assigns shifts.  
+- If too many riders are available on the same day:  
+  - the app applies a **fair selection algorithm**,  
+  - or allows the manager to decide manually.  
+- Riders can always check the **history** and understand why they were selected or not.
+
+⸻
+
+🚀 **Project status**
+
+Currently in active development as an MVP (Minimum Viable Product), focusing on availability management and the boss overview.  
+Next steps:  
+- Extension of distribution rules  
+- Testing on real Android/iOS devices  
+- Release on official stores
+
+
+
+---ITA---
+
+🗓️ **Turni**
+
 Turni è un’applicazione per la gestione e distribuzione dei turni di lavoro in modo digitale, trasparente e scalabile.  
 L’obiettivo è sostituire processi manuali e spesso caotici con un sistema rapido, chiaro e condiviso tra dipendenti e responsabili.
 
