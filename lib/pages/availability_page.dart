@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../data/availability_store.dart';
+import '../data/repositories/availability_repository.dart';
 
 class AvailabilityPage extends StatefulWidget {
   final String employee;
@@ -14,6 +15,10 @@ class _AvailabilityPageState extends State<AvailabilityPage> {
   late final DateTime _startMonday; // prossimo lunedì
   late final List<DateTime> _days;  // 14 giorni da _startMonday
   final Set<String> _selected = {}; // yyyy-MM-dd dei giorni selezionati
+
+  bool _loading = true;
+  bool _saving = false;
+  String? _loadError;
 
   static String _keyForDate(DateTime d) => DateFormat('yyyy-MM-dd').format(d);
   static bool _sameYMD(DateTime a, DateTime b) =>
@@ -34,6 +39,8 @@ class _AvailabilityPageState extends State<AvailabilityPage> {
         ..clear()
         ..addAll(already.map(_keyForDate).where(allowedKeys.contains));
     }
+    // Carica anche le selezioni dal DB per l'utente corrente
+    _preloadFromDb();
   }
 
   DateTime _computeNextMonday(DateTime from) {
@@ -56,7 +63,32 @@ class _AvailabilityPageState extends State<AvailabilityPage> {
     });
   }
 
-  void _save() {
+  Future<void> _preloadFromDb() async {
+    try {
+      await AvailabilityRepository.instance.ensureProfileRow();
+      final fromDb = await AvailabilityRepository.instance.getMyDays();
+      final allowedKeys = _days.map(_keyForDate).toSet();
+      setState(() {
+        _selected
+          ..clear()
+          ..addAll(
+            fromDb
+                .where((d) => _days.any((x) => _sameYMD(x, d)))
+                .map(_keyForDate)
+                .where(allowedKeys.contains),
+          );
+        _loading = false;
+        _loadError = null;
+      });
+    } catch (e) {
+      setState(() {
+        _loading = false;
+        _loadError = 'Errore caricamento disponibilità: $e';
+      });
+    }
+  }
+
+  Future<void> _save() async {
     if (_selected.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Nessun giorno selezionato')),
@@ -67,21 +99,37 @@ class _AvailabilityPageState extends State<AvailabilityPage> {
     final selectedDates =
         _days.where((d) => _selected.contains(_keyForDate(d))).toList();
 
-    AvailabilityStore.instance.setSelection(
-      employee: widget.employee,
-      startMonday: _startMonday,
-      selectedDays: selectedDates,
-    );
+    setState(() => _saving = true);
+    try {
+      // Salva su DB per l'utente corrente
+      await AvailabilityRepository.instance
+          .setMyDays(selectedDates.toSet());
 
-    final df = DateFormat('EEE dd MMM', 'it_IT');
-    final chosen = selectedDates.map((d) => df.format(d)).join(', ');
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${widget.employee}: 19:00–23:00 per: $chosen')),
-    );
+      // Mantieni anche lo store in sync per la UI corrente
+      AvailabilityStore.instance.setSelection(
+        employee: widget.employee,
+        startMonday: _startMonday,
+        selectedDays: selectedDates,
+      );
 
-    Future.microtask(() {
-      if (mounted) Navigator.pop(context);
-    });
+      final df = DateFormat('EEE dd MMM', 'it_IT');
+      final chosen = selectedDates.map((d) => df.format(d)).join(', ');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${widget.employee}: 19:00–23:00 per: $chosen')),
+      );
+
+      Future.microtask(() {
+        if (mounted) Navigator.pop(context);
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Errore salvataggio: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   @override
@@ -151,60 +199,88 @@ class _AvailabilityPageState extends State<AvailabilityPage> {
       appBar: AppBar(title: Text('Disponibilità — ${widget.employee}')),
       body: Padding(
         padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            // Banner informativo
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              margin: const EdgeInsets.only(bottom: 12),
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.teal, width: 1.5),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                'Seleziona i giorni per ${widget.employee} (19:00–23:00)\n'
-                'Periodo: ${dfRange.format(week1.first)} – ${dfRange.format(week2.last)} (da lunedì)',
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 14),
-              ),
-            ),
+        child: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : _loadError != null
+                ? Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(_loadError!, textAlign: TextAlign.center),
+                        const SizedBox(height: 12),
+                        FilledButton(
+                          onPressed: () {
+                            setState(() {
+                              _loading = true;
+                              _loadError = null;
+                            });
+                            _preloadFromDb();
+                          },
+                          child: const Text('Riprova'),
+                        ),
+                      ],
+                    ),
+                  )
+                : Column(
+                    children: [
+                      // Banner informativo
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        margin: const EdgeInsets.only(bottom: 12),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.teal, width: 1.5),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          'Seleziona i giorni per ${widget.employee} (19:00–23:00)\n'
+                          'Periodo: ${dfRange.format(week1.first)} – ${dfRange.format(week2.last)} (da lunedì)',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(fontSize: 14),
+                        ),
+                      ),
 
-            // Contenuto scrollabile: settimana 1 e settimana 2 una sotto l'altra
-            Expanded(
-              child: SingleChildScrollView(
-                child: Column(
-                  children: [
-                    weekSection('Settimana 1', week1),
-                    const SizedBox(height: 16),
-                    weekSection('Settimana 2', week2),
-                  ],
-                ),
-              ),
-            ),
+                      // Contenuto scrollabile: settimana 1 e settimana 2 una sotto l'altra
+                      Expanded(
+                        child: SingleChildScrollView(
+                          child: Column(
+                            children: [
+                              weekSection('Settimana 1', week1),
+                              const SizedBox(height: 16),
+                              weekSection('Settimana 2', week2),
+                            ],
+                          ),
+                        ),
+                      ),
 
-            // Azioni
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () => setState(_selected.clear),
-                    icon: const Icon(Icons.clear),
-                    label: const Text('Reset'),
+                      // Azioni
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: _saving ? null : () => setState(_selected.clear),
+                              icon: const Icon(Icons.clear),
+                              label: const Text('Reset'),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: FilledButton.icon(
+                              onPressed: _saving ? null : _save,
+                              icon: _saving
+                                  ? const SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                    )
+                                  : const Icon(Icons.save),
+                              label: Text('Salva (${_selected.length})'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: FilledButton.icon(
-                    onPressed: _save,
-                    icon: const Icon(Icons.save),
-                    label: Text('Salva (${_selected.length})'),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
       ),
     );
   }

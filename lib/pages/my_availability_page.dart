@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../data/session_store.dart';
 import '../data/availability_store.dart';
+import '../data/repositories/availability_repository.dart';
 
 class MyAvailabilityPage extends StatelessWidget {
   const MyAvailabilityPage({super.key});
@@ -9,21 +10,34 @@ class MyAvailabilityPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final session = SessionStore.instance;
-    final name = session.employeeName ?? 'Dipendente';
     final store = AvailabilityStore.instance;
 
     final start = store.startMonday;
-    final selections = store.selectedFor(name);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Le mie disponibilità')),
       body: Padding(
         padding: const EdgeInsets.all(16),
-        child: start == null || selections.isEmpty
-            ? const Center(
-                child: Text('Non hai ancora selezionato alcun giorno.'),
-              )
-            : _body(context, start, selections),
+        child: start == null
+            ? const Center(child: Text('Periodo non impostato.'))
+            : FutureBuilder<List<DateTime>>(
+                future: AvailabilityRepository.instance.getMyDays(),
+                builder: (context, snap) {
+                  if (snap.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (snap.hasError) {
+                    return Center(child: Text('Errore nel caricamento: ${snap.error}'));
+                  }
+                  final selections = (snap.data ?? []).toList()..sort();
+                  if (selections.isEmpty) {
+                    return const Center(
+                      child: Text('Non hai ancora selezionato alcun giorno.'),
+                    );
+                  }
+                  return _body(context, start, selections);
+                },
+              ),
       ),
     );
   }
