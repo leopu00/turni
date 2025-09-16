@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:async';
 import 'package:flutter/foundation.dart' show kIsWeb;
-import '../state/session_store.dart';
 import '../data/auth_dao.dart';
+import '../data/repositories/availability_repository.dart';
+import '../state/availability_store.dart';
+import '../state/session_store.dart';
 import 'boss_page.dart';
 
 import 'employee_home_page.dart';
@@ -29,6 +31,18 @@ class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
 
   StreamSubscription<AuthState>? _authSub;
+
+  Future<void> _hydrateAvailability(String employeeIdentifier) async {
+    if (employeeIdentifier.isEmpty) return;
+    try {
+      await AvailabilityRepository.instance.ensureProfileRow();
+      final days = await AvailabilityRepository.instance.getMyDays();
+      AvailabilityStore.instance.hydrateFromRemote(
+        employee: employeeIdentifier,
+        days: days,
+      );
+    } catch (_) {}
+  }
 
   @override
   void initState() {
@@ -114,7 +128,10 @@ class _LoginPageState extends State<LoginPage> {
         MaterialPageRoute(builder: (_) => const BossPage()),
       );
     } else {
-      session.loginEmployee(authSession.user.email ?? '');
+      final email = authSession.user.email ?? '';
+      await _hydrateAvailability(email);
+      if (!mounted) return;
+      session.loginEmployee(email);
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const EmployeeHomePage()),
@@ -173,7 +190,10 @@ class _LoginPageState extends State<LoginPage> {
           Navigator.pushReplacement(context,
             MaterialPageRoute(builder: (_) => const BossPage()));
         } else {
-          session.loginEmployee(userInput);
+          final email = client.auth.currentUser?.email ?? userInput;
+          await _hydrateAvailability(email);
+          if (!mounted) return;
+          session.loginEmployee(email);
           Navigator.pushReplacement(context,
             MaterialPageRoute(builder: (_) => const EmployeeHomePage()));
         }

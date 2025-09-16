@@ -36,6 +36,31 @@ class AvailabilityStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  void hydrateFromRemote({
+    required String employee,
+    required Iterable<DateTime> days,
+  }) {
+    final normalized =
+        days.map((d) => DateTime(d.year, d.month, d.day)).toList()..sort();
+    if (normalized.isEmpty) {
+      _byEmployee.remove(employee);
+      if (_byEmployee.isEmpty) {
+        _startMonday = null;
+      }
+      notifyListeners();
+      return;
+    }
+
+    final first = normalized.first;
+    final monday = DateTime(first.year, first.month, first.day)
+        .subtract(Duration(days: first.weekday - DateTime.monday));
+    setSelection(
+      employee: employee,
+      startMonday: monday,
+      selectedDays: normalized,
+    );
+  }
+
   void clearEmployee(String employee) {
     _byEmployee.remove(employee);
     notifyListeners();
