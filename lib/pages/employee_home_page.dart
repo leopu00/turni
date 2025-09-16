@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import '../data/session_store.dart';
-import '../data/availability_store.dart';
-import '../data/login_page.dart';
+import '../state/session_store.dart';
+import '../state/availability_store.dart';
+import 'login_page.dart';
 import 'availability_page.dart';
 import 'my_availability_page.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';

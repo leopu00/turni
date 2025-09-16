@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:async';
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'session_store.dart';
-import 'auth_dao.dart';
-import '../pages/boss_page.dart';
+import '../state/session_store.dart';
+import '../data/auth_dao.dart';
+import 'boss_page.dart';
 
-import '../pages/employee_home_page.dart';
-import '../pages/sign_up_page.dart';
+import 'employee_home_page.dart';
+import 'sign_up_page.dart';
 
 enum _Role { boss, employee }
 

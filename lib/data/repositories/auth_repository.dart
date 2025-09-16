@@ -1,6 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../remote/supabase_client.dart';
-import '../models/profile.dart';
+import '../../models/supabase/profile.dart';
 
 class AuthRepository {
   AuthRepository._();

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../data/availability_store.dart';
+import '../state/availability_store.dart';
 import '../data/repositories/availability_repository.dart';
 
 class AvailabilityPage extends StatefulWidget {

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../data/session_store.dart';
-import '../data/availability_store.dart';
+import '../state/session_store.dart';
+import '../state/availability_store.dart';
 import '../data/repositories/availability_repository.dart';
 
 class MyAvailabilityPage extends StatelessWidget {

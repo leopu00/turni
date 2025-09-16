@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../data/availability_store.dart';
-import '../data/session_store.dart';
-import '../data/login_page.dart';
+import '../state/availability_store.dart';
+import '../state/session_store.dart';
+import 'login_page.dart';
 import 'requirements_page.dart';
 import 'riders_overview_page.dart';
 

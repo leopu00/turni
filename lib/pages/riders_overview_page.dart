@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../data/availability_store.dart';
-import '../data/session_store.dart';
-import '../data/login_page.dart';
+import '../state/availability_store.dart';
+import '../state/session_store.dart';
+import 'login_page.dart';
 import '../data/repositories/availability_repository.dart';
 
 /// Vista per il Boss: elenco disponibilità per dipendente, divise in Settimana 1/2.
