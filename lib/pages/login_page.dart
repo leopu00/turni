@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:async';
 import 'package:flutter/foundation.dart' show kIsWeb;
-import '../data/auth_dao.dart';
 import '../data/repositories/availability_repository.dart';
 import '../state/availability_store.dart';
 import '../state/session_store.dart';
@@ -10,10 +9,6 @@ import 'boss_page.dart';
 
 import 'employee_home_page.dart';
 import 'sign_up_page.dart';
-
-enum _Role { boss, employee }
-
-
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key, this.fromLogout = false});
@@ -44,6 +39,16 @@ class _LoginPageState extends State<LoginPage> {
     } catch (_) {}
   }
 
+  Future<void> _hydrateBossAvailability() async {
+    final client = Supabase.instance.client;
+    if (client.auth.currentUser == null) return;
+    try {
+      await AvailabilityRepository.instance.ensureProfileRow();
+      final all = await AvailabilityRepository.instance.getAllForBoss();
+      AvailabilityStore.instance.hydrateAllForBoss(all);
+    } catch (_) {}
+  }
+
   @override
   void initState() {
     super.initState();
@@ -61,27 +66,6 @@ class _LoginPageState extends State<LoginPage> {
     });
   }
 
-  Future<_Role?> _authenticate(String username, String password) async {
-    if (kIsWeb) {
-      // Fallback per Web/Chrome: sqflite non è supportato su web.
-      const users = <String, Map<String, String>>{
-        'boss': {'password': 'admin', 'role': 'boss'},
-        'mario': {'password': '1234', 'role': 'employee'},
-        'anna': {'password': 'abcd', 'role': 'employee'},
-      };
-      await Future.delayed(const Duration(milliseconds: 150));
-      final u = users[username.trim().toLowerCase()];
-      if (u == null) return null;
-      if (u['password'] != password) return null;
-      return u['role'] == 'boss' ? _Role.boss : _Role.employee;
-    }
-
-    // Mobile/desktop native: usa SQLite tramite AuthDao
-    final u = await AuthDao.instance.verifyLogin(username, password);
-    if (u == null) return null;
-    return u.role == 'boss' ? _Role.boss : _Role.employee;
-  }
-
   Future<void> _signUpEmail() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _submitting = true);
@@ -93,13 +77,17 @@ class _LoginPageState extends State<LoginPage> {
       await client.auth.signUp(email: email, password: password);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Sign up successful. Check your email to verify your account.')),
+        const SnackBar(
+          content: Text(
+            'Sign up successful. Check your email to verify your account.',
+          ),
+        ),
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Sign up error: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Sign up error: $e')));
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -122,6 +110,8 @@ class _LoginPageState extends State<LoginPage> {
 
     if (!mounted) return;
     if (role == 'boss') {
+      await _hydrateBossAvailability();
+      if (!mounted) return;
       session.loginBoss();
       Navigator.pushReplacement(
         context,
@@ -152,9 +142,9 @@ class _LoginPageState extends State<LoginPage> {
       // Su Web: dopo l'OAuth si torna all'origin e Supabase ripristina la sessione.
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Google Sign-In error: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Google Sign-In error: $e')));
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -166,74 +156,70 @@ class _LoginPageState extends State<LoginPage> {
 
     final userInput = _userCtrl.text.trim();
     final password = _passCtrl.text;
-    bool looksLikeEmail(String s) => s.contains('@');
+    if (!userInput.contains('@')) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Inserisci un indirizzo email valido.')),
+      );
+      setState(() => _submitting = false);
+      return;
+    }
 
     try {
-      if (looksLikeEmail(userInput)) {
-        // ===== Supabase email/password =====
-        final client = Supabase.instance.client;
-        await client.auth.signInWithPassword(email: userInput, password: password);
+      final client = Supabase.instance.client;
+      await client.auth.signInWithPassword(
+        email: userInput,
+        password: password,
+      );
 
-        // Leggi ruolo dal profilo (se non c'è, default employee)
-        var role = 'employee';
-        try {
-          final uid = client.auth.currentUser?.id;
-          if (uid != null) {
-            final res = await client.from('profiles').select().eq('id', uid).limit(1);
-            if (res.isNotEmpty) role = (res.first['role'] as String?) ?? 'employee';
-          }
-        } catch (_) {}
-
-        if (!mounted) return;
-        if (role == 'boss') {
-          session.loginBoss();
-          Navigator.pushReplacement(context,
-            MaterialPageRoute(builder: (_) => const BossPage()));
-        } else {
-          final email = client.auth.currentUser?.email ?? userInput;
-          await _hydrateAvailability(email);
-          if (!mounted) return;
-          session.loginEmployee(email);
-          Navigator.pushReplacement(context,
-            MaterialPageRoute(builder: (_) => const EmployeeHomePage()));
+      // Leggi ruolo dal profilo (se non c'è, default employee)
+      var role = 'employee';
+      try {
+        final uid = client.auth.currentUser?.id;
+        if (uid != null) {
+          final res = await client
+              .from('profiles')
+              .select()
+              .eq('id', uid)
+              .limit(1);
+          if (res.isNotEmpty)
+            role = (res.first['role'] as String?) ?? 'employee';
         }
+      } catch (_) {}
+
+      if (!mounted) return;
+      if (role == 'boss') {
+        await _hydrateBossAvailability();
+        if (!mounted) return;
+        session.loginBoss();
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const BossPage()),
+        );
       } else {
-        // ===== Fallback: tuo SQLite per username/password =====
-        final u = await AuthDao.instance.verifyLogin(userInput, password);
-        if (u == null) throw Exception('Credenziali non valide');
-        final role = u.role == 'boss' ? 'boss' : 'employee';
-
+        final email = client.auth.currentUser?.email ?? userInput;
+        await _hydrateAvailability(email);
         if (!mounted) return;
-        if (role == 'boss') {
-          session.loginBoss();
-          Navigator.pushReplacement(context,
-            MaterialPageRoute(builder: (_) => const BossPage()));
-        } else {
-          session.loginEmployee(userInput);
-          Navigator.pushReplacement(context,
-            MaterialPageRoute(builder: (_) => const EmployeeHomePage()));
-        }
+        session.loginEmployee(email);
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const EmployeeHomePage()),
+        );
       }
     } on AuthApiException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.message)));
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Credenziali non valide o errore di rete.')),
+        const SnackBar(
+          content: Text('Credenziali non valide o errore di rete.'),
+        ),
       );
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
-  }
-
-  // Quick testing fallback entry point
-  void _goBoss() {
-    session.loginBoss();
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => const BossPage()),
-    );
   }
 
   @override
@@ -275,8 +261,9 @@ class _LoginPageState extends State<LoginPage> {
                               border: OutlineInputBorder(),
                             ),
                             textInputAction: TextInputAction.next,
-                            validator: (v) =>
-                                (v == null || v.trim().isEmpty) ? 'Inserisci email o username' : null,
+                            validator: (v) => (v == null || v.trim().isEmpty)
+                                ? 'Inserisci email o username'
+                                : null,
                           ),
                           const SizedBox(height: 12),
                           _PasswordField(
@@ -292,7 +279,9 @@ class _LoginPageState extends State<LoginPage> {
                                   ? const SizedBox(
                                       width: 16,
                                       height: 16,
-                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
                                     )
                                   : const Icon(Icons.login),
                               label: const Text('Accedi'),
@@ -305,14 +294,18 @@ class _LoginPageState extends State<LoginPage> {
                                 onPressed: _submitting
                                     ? null
                                     : () => Navigator.push(
-                                          context,
-                                          MaterialPageRoute(builder: (_) => const SignUpPage()),
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => const SignUpPage(),
                                         ),
+                                      ),
                                 child: const Text('Create account'),
                               ),
                               const Spacer(),
                               FilledButton.icon(
-                                onPressed: _submitting ? null : _signInWithGoogle,
+                                onPressed: _submitting
+                                    ? null
+                                    : _signInWithGoogle,
                                 icon: const Icon(Icons.g_mobiledata),
                                 label: const Text('Continue with Google'),
                               ),
@@ -320,31 +313,6 @@ class _LoginPageState extends State<LoginPage> {
                           ),
                         ],
                       ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Row(
-                      children: [
-                        const Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Accesso rapido Boss (test)', style: TextStyle(fontWeight: FontWeight.bold)),
-                              SizedBox(height: 8),
-                              Text('Utile mentre implementiamo il DB.'),
-                            ],
-                          ),
-                        ),
-                        FilledButton.icon(
-                          onPressed: _goBoss,
-                          icon: const Icon(Icons.manage_accounts),
-                          label: const Text('Entra come boss'),
-                        ),
-                      ],
                     ),
                   ),
                 ),
@@ -382,7 +350,8 @@ class _PasswordFieldState extends State<_PasswordField> {
         ),
       ),
       obscureText: _obscure,
-      validator: (v) => (v == null || v.isEmpty) ? 'Inserisci la password' : null,
+      validator: (v) =>
+          (v == null || v.isEmpty) ? 'Inserisci la password' : null,
       onFieldSubmitted: (_) => widget.onSubmit(),
     );
   }
