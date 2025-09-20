@@ -10,10 +10,22 @@ class AvailabilityRepository {
   Future<void> ensureProfileRow() async {
     final user = _db.auth.currentUser;
     if (user == null) return;
-    await _db.from('profiles').upsert({
-      'id': user.id,
-      'email': user.email,
-    }, onConflict: 'id');
+    final existing = await _db
+        .from('profiles')
+        .select('id')
+        .eq('id', user.id)
+        .maybeSingle();
+    if (existing == null) {
+      await _db.from('profiles').insert({
+        'id': user.id,
+        'email': user.email,
+      });
+    } else if (user.email != null) {
+      await _db
+          .from('profiles')
+          .update({'email': user.email})
+          .eq('id', user.id);
+    }
   }
 
   /// Ritorna tutti i giorni (solo data) per l’utente loggato.
@@ -37,10 +49,12 @@ class AvailabilityRepository {
 
     // Giorni già a DB
     final existing = await getMyDays();
-    final existingSet =
-        existing.map((d) => DateTime.utc(d.year, d.month, d.day)).toSet();
-    final desiredSet =
-        days.map((d) => DateTime.utc(d.year, d.month, d.day)).toSet();
+    final existingSet = existing
+        .map((d) => DateTime.utc(d.year, d.month, d.day))
+        .toSet();
+    final desiredSet = days
+        .map((d) => DateTime.utc(d.year, d.month, d.day))
+        .toSet();
 
     final toInsert = desiredSet.difference(existingSet).toList();
     final toDelete = existingSet.difference(desiredSet).toList();
@@ -48,10 +62,12 @@ class AvailabilityRepository {
     // Inserimenti
     if (toInsert.isNotEmpty) {
       final rows = toInsert
-          .map((d) => {
-                'rider_id': user.id,
-                'day': d.toIso8601String().substring(0, 10), // YYYY-MM-DD
-              })
+          .map(
+            (d) => {
+              'rider_id': user.id,
+              'day': d.toIso8601String().substring(0, 10), // YYYY-MM-DD
+            },
+          )
           .toList();
       await _db.from('availabilities').insert(rows);
     }
@@ -68,6 +84,8 @@ class AvailabilityRepository {
 
   /// Per il Boss: mappa email -> lista di giorni disponibili.
   Future<Map<String, List<DateTime>>> getAllForBoss() async {
+    final user = _db.auth.currentUser;
+    if (user == null) return {};
     // Join profiles + availabilities
     final rows = await _db
         .from('availabilities')
