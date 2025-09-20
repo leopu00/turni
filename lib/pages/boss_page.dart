@@ -9,7 +9,9 @@ import 'requirements_page.dart';
 import 'riders_overview_page.dart';
 
 class BossPage extends StatefulWidget {
-  const BossPage({super.key});
+  const BossPage({super.key, this.availabilityRepository});
+
+  final AvailabilityRepository? availabilityRepository;
 
   @override
   State<BossPage> createState() => _BossPageState();
@@ -21,10 +23,12 @@ class _BossPageState extends State<BossPage> {
   String? _loadError;
   Map<String, List<DateTime>> _data = {};
   DateTime? _periodStart;
+  late final AvailabilityRepository _repository;
 
   @override
   void initState() {
     super.initState();
+    _repository = widget.availabilityRepository ?? AvailabilityRepository.instance;
     store.addListener(_onChanged);
     _refreshFromRemote();
   }
@@ -45,8 +49,8 @@ class _BossPageState extends State<BossPage> {
       _loadError = null;
     });
     try {
-      await AvailabilityRepository.instance.ensureProfileRow();
-      final raw = await AvailabilityRepository.instance.getAllForBoss();
+      await _repository.ensureProfileRow();
+      final raw = await _repository.getAllForBoss();
       final normalized = <String, List<DateTime>>{};
       DateTime? earliest;
       raw.forEach((email, days) {

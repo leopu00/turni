@@ -11,8 +11,17 @@ import 'employee_home_page.dart';
 import 'sign_up_page.dart';
 
 class LoginPage extends StatefulWidget {
-  const LoginPage({super.key, this.fromLogout = false});
+  const LoginPage({
+    super.key,
+    this.fromLogout = false,
+    this.supabaseClient,
+    this.availabilityRepository,
+    this.roleResolver,
+  });
   final bool fromLogout;
+  final SupabaseClient? supabaseClient;
+  final AvailabilityRepository? availabilityRepository;
+  final Future<String> Function(Session session)? roleResolver;
 
   @override
   State<LoginPage> createState() => _LoginPageState();
@@ -26,12 +35,15 @@ class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
 
   StreamSubscription<AuthState>? _authSub;
+  late final SupabaseClient _client;
+  late final AvailabilityRepository _availabilityRepository;
+  late final Future<String> Function(Session session)? _roleResolver;
 
   Future<void> _hydrateAvailability(String employeeIdentifier) async {
     if (employeeIdentifier.isEmpty) return;
     try {
-      await AvailabilityRepository.instance.ensureProfileRow();
-      final days = await AvailabilityRepository.instance.getMyDays();
+      await _availabilityRepository.ensureProfileRow();
+      final days = await _availabilityRepository.getMyDays();
       AvailabilityStore.instance.hydrateFromRemote(
         employee: employeeIdentifier,
         days: days,
@@ -40,11 +52,10 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Future<void> _hydrateBossAvailability() async {
-    final client = Supabase.instance.client;
-    if (client.auth.currentUser == null) return;
+    if (_client.auth.currentUser == null) return;
     try {
-      await AvailabilityRepository.instance.ensureProfileRow();
-      final all = await AvailabilityRepository.instance.getAllForBoss();
+      await _availabilityRepository.ensureProfileRow();
+      final all = await _availabilityRepository.getAllForBoss();
       AvailabilityStore.instance.hydrateAllForBoss(all);
     } catch (_) {}
   }
@@ -52,13 +63,17 @@ class _LoginPageState extends State<LoginPage> {
   @override
   void initState() {
     super.initState();
+    _client = widget.supabaseClient ?? Supabase.instance.client;
+    _availabilityRepository =
+        widget.availabilityRepository ?? AvailabilityRepository.instance;
+    _roleResolver = widget.roleResolver;
     // If already signed-in (e.g., after Google OAuth on web), route immediately
-    final current = Supabase.instance.client.auth.currentSession;
+    final current = _client.auth.currentSession;
     if (current != null && !widget.fromLogout) {
       _navigateByRole(current);
     }
     // Listen for future auth state changes (e.g., OAuth callback)
-    _authSub = Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+    _authSub = _client.auth.onAuthStateChange.listen((data) {
       final authSession = data.session;
       if (authSession != null) {
         _navigateByRole(authSession);
@@ -73,8 +88,7 @@ class _LoginPageState extends State<LoginPage> {
     final password = _passCtrl.text;
     try {
       // Se Supabase non è inizializzato lancerà/mostrerà errore
-      final client = Supabase.instance.client;
-      await client.auth.signUp(email: email, password: password);
+      await _client.auth.signUp(email: email, password: password);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -96,13 +110,18 @@ class _LoginPageState extends State<LoginPage> {
   Future<void> _navigateByRole(Session authSession) async {
     var role = 'employee';
     try {
-      final res = await Supabase.instance.client
-          .from('profiles')
-          .select()
-          .eq('id', authSession.user.id)
-          .limit(1);
-      if (res.isNotEmpty) {
-        role = (res.first['role'] as String?) ?? 'employee';
+      final resolver = _roleResolver;
+      if (resolver != null) {
+        role = await resolver(authSession);
+      } else {
+        final res = await _client
+            .from('profiles')
+            .select()
+            .eq('id', authSession.user.id)
+            .limit(1);
+        if (res.isNotEmpty) {
+          role = (res.first['role'] as String?) ?? 'employee';
+        }
       }
     } catch (_) {
       // If profiles table/policies not ready, default to employee
@@ -115,7 +134,11 @@ class _LoginPageState extends State<LoginPage> {
       session.loginBoss();
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => const BossPage()),
+        MaterialPageRoute(
+          builder: (_) => BossPage(
+            availabilityRepository: _availabilityRepository,
+          ),
+        ),
       );
     } else {
       final email = authSession.user.email ?? '';
@@ -132,10 +155,9 @@ class _LoginPageState extends State<LoginPage> {
   Future<void> _signInWithGoogle() async {
     setState(() => _submitting = true);
     try {
-      final client = Supabase.instance.client;
       // Su Web forziamo il redirect all'origin corrente (es. http://localhost:<porta>)
       final redirectUrl = kIsWeb ? Uri.base.origin : null;
-      await client.auth.signInWithOAuth(
+      await _client.auth.signInWithOAuth(
         OAuthProvider.google,
         redirectTo: redirectUrl,
       );
@@ -165,8 +187,7 @@ class _LoginPageState extends State<LoginPage> {
     }
 
     try {
-      final client = Supabase.instance.client;
-      await client.auth.signInWithPassword(
+      await _client.auth.signInWithPassword(
         email: userInput,
         password: password,
       );
@@ -174,9 +195,9 @@ class _LoginPageState extends State<LoginPage> {
       // Leggi ruolo dal profilo (se non c'è, default employee)
       var role = 'employee';
       try {
-        final uid = client.auth.currentUser?.id;
+        final uid = _client.auth.currentUser?.id;
         if (uid != null) {
-          final res = await client
+          final res = await _client
               .from('profiles')
               .select()
               .eq('id', uid)
@@ -193,10 +214,14 @@ class _LoginPageState extends State<LoginPage> {
         session.loginBoss();
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => const BossPage()),
+          MaterialPageRoute(
+            builder: (_) => BossPage(
+              availabilityRepository: _availabilityRepository,
+            ),
+          ),
         );
       } else {
-        final email = client.auth.currentUser?.email ?? userInput;
+        final email = _client.auth.currentUser?.email ?? userInput;
         await _hydrateAvailability(email);
         if (!mounted) return;
         session.loginEmployee(email);
