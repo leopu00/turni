@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../data/repositories/availability_repository.dart';
 import '../state/availability_store.dart';
 import '../state/session_store.dart';
 import 'login_page.dart';
@@ -15,11 +16,16 @@ class BossPage extends StatefulWidget {
 
 class _BossPageState extends State<BossPage> {
   final store = AvailabilityStore.instance;
+  bool _loading = false;
+  String? _loadError;
+  Map<String, List<DateTime>> _data = {};
+  DateTime? _periodStart;
 
   @override
   void initState() {
     super.initState();
     store.addListener(_onChanged);
+    _refreshFromRemote();
   }
 
   @override
@@ -32,12 +38,80 @@ class _BossPageState extends State<BossPage> {
     if (mounted) setState(() {});
   }
 
+  Future<void> _refreshFromRemote() async {
+    setState(() {
+      _loading = true;
+      _loadError = null;
+    });
+    try {
+      await AvailabilityRepository.instance.ensureProfileRow();
+      final raw = await AvailabilityRepository.instance.getAllForBoss();
+      final normalized = <String, List<DateTime>>{};
+      DateTime? earliest;
+      raw.forEach((email, days) {
+        final normalizedDays =
+            days.map((d) => DateTime(d.year, d.month, d.day)).toList()..sort();
+        if (normalizedDays.isEmpty) return;
+        normalized[email] = normalizedDays;
+        final first = normalizedDays.first;
+        if (earliest == null || first.isBefore(earliest!)) {
+          earliest = first;
+        }
+      });
+
+      final monday = earliest == null
+          ? null
+          : DateTime(
+              earliest!.year,
+              earliest!.month,
+              earliest!.day,
+            ).subtract(Duration(days: earliest!.weekday - DateTime.monday));
+
+      AvailabilityStore.instance.hydrateAllForBoss(normalized);
+      if (!mounted) return;
+      setState(() {
+        _data = normalized;
+        _periodStart = monday;
+        _loadError = null;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loadError = 'Errore nel caricamento: $e';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+        });
+      }
+    }
+  }
+
   bool sameDay(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
 
+  bool get _hasData => _data.values.any((list) => list.isNotEmpty);
+
+  List<String> get _employees {
+    final list = _data.keys.toList()..sort();
+    return list;
+  }
+
+  int _availableCountFor(DateTime day) {
+    final normalized = DateTime(day.year, day.month, day.day);
+    int count = 0;
+    for (final list in _data.values) {
+      if (list.any((d) => sameDay(d, normalized))) count++;
+    }
+    return count;
+  }
+
+  List<DateTime> _selectedFor(String employee) => _data[employee] ?? const [];
+
   @override
   Widget build(BuildContext context) {
-    final start = store.startMonday;
+    final start = _periodStart;
     final dfShort = DateFormat('EEE dd', 'it_IT');
 
     return Scaffold(
@@ -46,27 +120,39 @@ class _BossPageState extends State<BossPage> {
         actions: [
           IconButton(
             tooltip: 'Disponibilità per rider',
-            onPressed: () {
-              Navigator.push(
+            onPressed: () async {
+              await Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const RidersOverviewPage()),
               );
+              if (!mounted) return;
+              await _refreshFromRemote();
             },
             icon: const Icon(Icons.people_outline),
           ),
           IconButton(
             tooltip: 'Imposta fabbisogni',
-            onPressed: () {
-              Navigator.push(
+            onPressed: () async {
+              await Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const RequirementsPage()),
               );
+              if (!mounted) return;
+              setState(() {});
             },
             icon: const Icon(Icons.settings_suggest_outlined),
           ),
           IconButton(
             tooltip: 'Pulisci tutto',
-            onPressed: store.hasAnySelection ? store.clearAll : null,
+            onPressed: _hasData
+                ? () {
+                    store.clearAll();
+                    setState(() {
+                      _data.clear();
+                      _periodStart = null;
+                    });
+                  }
+                : null,
             icon: const Icon(Icons.delete_outline),
           ),
           IconButton(
@@ -82,7 +168,23 @@ class _BossPageState extends State<BossPage> {
           ),
         ],
       ),
-      body: start == null || !store.hasAnySelection
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _loadError != null
+          ? Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(_loadError!, textAlign: TextAlign.center),
+                  const SizedBox(height: 12),
+                  FilledButton(
+                    onPressed: _refreshFromRemote,
+                    child: const Text('Riprova'),
+                  ),
+                ],
+              ),
+            )
+          : start == null || !_hasData
           ? const Center(
               child: Text(
                 'Nessuna disponibilità ricevuta.\nChiedi ai rider di selezionare i giorni.',
@@ -110,7 +212,10 @@ class _BossPageState extends State<BossPage> {
                 _weekTable(
                   context: context,
                   title: 'Settimana 2',
-                  days: List.generate(7, (i) => start.add(Duration(days: 7 + i))),
+                  days: List.generate(
+                    7,
+                    (i) => start.add(Duration(days: 7 + i)),
+                  ),
                   dfShort: dfShort,
                 ),
               ],
@@ -124,13 +229,13 @@ class _BossPageState extends State<BossPage> {
     required List<DateTime> days,
     required DateFormat dfShort,
   }) {
-    final employees = store.employees;
+    final employees = _employees;
 
     final columns = <DataColumn>[
       const DataColumn(label: Text('Rider')),
       ...days.map((d) {
         final req = store.requirementFor(d);
-        final avail = store.availableCountFor(d);
+        final avail = _availableCountFor(d);
         return DataColumn(
           label: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -138,7 +243,10 @@ class _BossPageState extends State<BossPage> {
               Text(dfShort.format(d)),
               Text(
                 'req $req / avail $avail',
-                style: TextStyle(fontSize: 11, color: Theme.of(context).hintColor),
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Theme.of(context).hintColor,
+                ),
               ),
             ],
           ),
@@ -147,7 +255,7 @@ class _BossPageState extends State<BossPage> {
     ];
 
     final rows = employees.map((e) {
-      final sel = store.selectedFor(e);
+      final sel = _selectedFor(e);
       return DataRow(
         cells: [
           DataCell(Text(e)),
@@ -170,7 +278,10 @@ class _BossPageState extends State<BossPage> {
       children: [
         Padding(
           padding: const EdgeInsets.only(top: 16, bottom: 8),
-          child: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+          child: Text(
+            title,
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
         ),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
