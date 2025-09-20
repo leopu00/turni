@@ -30,7 +30,11 @@ class AvailabilityStore extends ChangeNotifier {
     required DateTime startMonday,
     required List<DateTime> selectedDays,
   }) {
-    _startMonday = DateTime(startMonday.year, startMonday.month, startMonday.day);
+    _startMonday = DateTime(
+      startMonday.year,
+      startMonday.month,
+      startMonday.day,
+    );
     selectedDays.sort();
     _byEmployee[employee] = List<DateTime>.from(selectedDays);
     notifyListeners();
@@ -52,13 +56,46 @@ class AvailabilityStore extends ChangeNotifier {
     }
 
     final first = normalized.first;
-    final monday = DateTime(first.year, first.month, first.day)
-        .subtract(Duration(days: first.weekday - DateTime.monday));
+    final monday = DateTime(
+      first.year,
+      first.month,
+      first.day,
+    ).subtract(Duration(days: first.weekday - DateTime.monday));
     setSelection(
       employee: employee,
       startMonday: monday,
       selectedDays: normalized,
     );
+  }
+
+  void hydrateAllForBoss(Map<String, List<DateTime>> data) {
+    _byEmployee.clear();
+    _requirements.clear();
+
+    DateTime? earliest;
+    data.forEach((employee, days) {
+      final normalized =
+          days.map((d) => DateTime(d.year, d.month, d.day)).toList()..sort();
+      if (normalized.isEmpty) return;
+      _byEmployee[employee] = normalized;
+      final first = normalized.first;
+      if (earliest == null || first.isBefore(earliest!)) {
+        earliest = first;
+      }
+    });
+
+    if (earliest == null) {
+      _startMonday = null;
+    } else {
+      final monday = DateTime(
+        earliest!.year,
+        earliest!.month,
+        earliest!.day,
+      ).subtract(Duration(days: earliest!.weekday - DateTime.monday));
+      _startMonday = monday;
+    }
+
+    notifyListeners();
   }
 
   void clearEmployee(String employee) {
@@ -95,7 +132,11 @@ class AvailabilityStore extends ChangeNotifier {
   Map<DateTime, int> requirementsForRange(DateTime start, int days) {
     final out = <DateTime, int>{};
     for (int i = 0; i < days; i++) {
-      final d = DateTime(start.year, start.month, start.day).add(Duration(days: i));
+      final d = DateTime(
+        start.year,
+        start.month,
+        start.day,
+      ).add(Duration(days: i));
       out[d] = requirementFor(d);
     }
     return out;
