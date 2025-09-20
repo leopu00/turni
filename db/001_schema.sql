@@ -18,22 +18,22 @@ create policy "read own profile"
 on public.profiles
 for select
 to authenticated
-using (id = auth.uid());
+using (id = (select auth.uid()));
 
 drop policy if exists "upsert own profile" on public.profiles;
 create policy "upsert own profile"
 on public.profiles
 for insert
 to authenticated
-with check (id = auth.uid());
+with check (id = (select auth.uid()));
 
 drop policy if exists "update own profile" on public.profiles;
 create policy "update own profile"
 on public.profiles
 for update
 to authenticated
-using (id = auth.uid())
-with check (id = auth.uid());
+using (id = (select auth.uid()))
+with check (id = (select auth.uid()));
 
 -- ========== AVAILABILITIES (sera 19–23, on/off per giorno) ==========
 create table if not exists public.availabilities (
@@ -52,29 +52,29 @@ create policy "employee read own"
 on public.availabilities
 for select
 to authenticated
-using (rider_id = auth.uid());
+using (rider_id = (select auth.uid()));
 
 drop policy if exists "employee insert own" on public.availabilities;
 create policy "employee insert own"
 on public.availabilities
 for insert
 to authenticated
-with check (rider_id = auth.uid());
+with check (rider_id = (select auth.uid()));
 
 drop policy if exists "employee update own" on public.availabilities;
 create policy "employee update own"
 on public.availabilities
 for update
 to authenticated
-using (rider_id = auth.uid())
-with check (rider_id = auth.uid());
+using (rider_id = (select auth.uid()))
+with check (rider_id = (select auth.uid()));
 
 drop policy if exists "employee delete own" on public.availabilities;
 create policy "employee delete own"
 on public.availabilities
 for delete
 to authenticated
-using (rider_id = auth.uid());
+using (rider_id = (select auth.uid()));
 
 -- boss: può leggere tutto
 drop policy if exists "boss can read all availabilities" on public.availabilities;
@@ -85,6 +85,6 @@ to authenticated
 using (
   exists (
     select 1 from public.profiles p
-    where p.id = auth.uid() and p.role = 'boss'
+    where p.id = (select auth.uid()) and p.role = 'boss'
   )
 );
