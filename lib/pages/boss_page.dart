@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../data/repositories/availability_repository.dart';
 import '../state/availability_store.dart';
 import '../state/session_store.dart';
@@ -157,10 +158,17 @@ class _BossPageState extends State<BossPage> {
           ),
           IconButton(
             tooltip: 'Logout',
-            onPressed: () {
+            onPressed: () async {
+              try {
+                await Supabase.instance.client.auth.signOut();
+              } catch (_) {}
               SessionStore.instance.logout();
-              Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (_) => const LoginPage()),
+              if (!context.mounted) return;
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const LoginPage(fromLogout: true),
+                ),
                 (route) => false,
               );
             },
