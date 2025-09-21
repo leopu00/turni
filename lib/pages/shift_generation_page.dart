@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../data/repositories/shop_repository.dart';
+import '../models/supabase/profile.dart';
 
 class ShiftGenerationPage extends StatefulWidget {
   const ShiftGenerationPage({super.key});
@@ -11,6 +15,7 @@ class ShiftGenerationPage extends StatefulWidget {
 class _ShiftGenerationPageState extends State<ShiftGenerationPage> {
   static final DateFormat _weekFmt = DateFormat('dd MMM', 'it_IT');
   static final DateFormat _dayFmt = DateFormat('EEEE dd MMM', 'it_IT');
+  static final DateFormat _keyFmt = DateFormat('yyyy-MM-dd');
 
   final List<int> _availableWeeks = [1, 2, 3, 4];
 
@@ -18,14 +23,43 @@ class _ShiftGenerationPageState extends State<ShiftGenerationPage> {
   List<DateTime> _days = const [];
 
   int _weeks = 2;
-  int _currentWeek = 0;
   int _currentDayIndex = 0;
   bool _configured = false;
+
+  List<Profile> _colleagues = const [];
+  bool _loadingColleagues = false;
+  String? _colleaguesError;
+  final Map<String, Set<String>> _dailySelections = {};
 
   @override
   void initState() {
     super.initState();
     _startDate = _nextWeekMonday(DateTime.now());
+    _loadColleagues();
+  }
+
+  Future<void> _loadColleagues() async {
+    final currentUserId = Supabase.instance.client.auth.currentUser?.id;
+    setState(() {
+      _loadingColleagues = true;
+      _colleaguesError = null;
+    });
+    try {
+      final result = await ShopRepository.instance
+          .fetchColleaguesForCurrentUser();
+      final filtered = result.colleagues
+          .where((p) => p.role != 'boss' || p.id == currentUserId)
+          .toList();
+      setState(() {
+        _colleagues = filtered;
+        _loadingColleagues = false;
+      });
+    } catch (e) {
+      setState(() {
+        _colleaguesError = e.toString();
+        _loadingColleagues = false;
+      });
+    }
   }
 
   DateTime _nextWeekMonday(DateTime from) {
@@ -39,7 +73,6 @@ class _ShiftGenerationPageState extends State<ShiftGenerationPage> {
     if (_currentDayIndex == 0) return;
     setState(() {
       _currentDayIndex--;
-      _currentWeek = _currentDayIndex ~/ 7;
     });
   }
 
@@ -47,16 +80,10 @@ class _ShiftGenerationPageState extends State<ShiftGenerationPage> {
     if (_currentDayIndex >= _days.length - 1) return;
     setState(() {
       _currentDayIndex++;
-      _currentWeek = _currentDayIndex ~/ 7;
     });
   }
 
-  void _onWeekTapped(int step) {
-    setState(() {
-      _currentWeek = step;
-      _currentDayIndex = step * 7;
-    });
-  }
+  void _setDayIndex(int index) => setState(() => _currentDayIndex = index);
 
   Future<void> _pickStartDate() async {
     final picked = await showDatePicker(
@@ -79,11 +106,20 @@ class _ShiftGenerationPageState extends State<ShiftGenerationPage> {
         _weeks * 7,
         (i) => _startDate.add(Duration(days: i)),
       );
-      _currentWeek = 0;
       _currentDayIndex = 0;
       _configured = true;
+      for (final day in _days) {
+        _ensureDayEntry(day);
+      }
     });
   }
+
+  void _ensureDayEntry(DateTime day) {
+    final key = _dayKey(day);
+    _dailySelections.putIfAbsent(key, () => <String>{});
+  }
+
+  String _dayKey(DateTime day) => _keyFmt.format(day);
 
   @override
   Widget build(BuildContext context) {
@@ -112,6 +148,7 @@ class _ShiftGenerationPageState extends State<ShiftGenerationPage> {
     final periodEnd = _days.last;
     final currentDay = _days[_currentDayIndex];
     final weeksLabel = _weeks == 1 ? '1 settimana' : '$_weeks settimane';
+    final currentWeek = _currentDayIndex ~/ 7;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -129,7 +166,7 @@ class _ShiftGenerationPageState extends State<ShiftGenerationPage> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    weeksLabel,
+                    '$weeksLabel · Settimana attuale: ${currentWeek + 1}',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
@@ -143,30 +180,10 @@ class _ShiftGenerationPageState extends State<ShiftGenerationPage> {
           ],
         ),
         const SizedBox(height: 16),
-        Expanded(
-          child: Stepper(
-            type: StepperType.horizontal,
-            currentStep: _currentWeek,
-            onStepTapped: _onWeekTapped,
-            controlsBuilder: (_, __) => const SizedBox.shrink(),
-            steps: List.generate(_weeks, (index) {
-              final start = _days[index * 7];
-              final end = _days[(index + 1) * 7 - 1];
-              return Step(
-                title: Text('Settimana ${index + 1}'),
-                content: _WeekContent(
-                  weekLabel: 'Settimana ${index + 1}',
-                  start: start,
-                  end: end,
-                  isActive: _currentWeek == index,
-                ),
-                isActive: _currentWeek == index,
-                state: _currentWeek == index
-                    ? StepState.editing
-                    : StepState.indexed,
-              );
-            }),
-          ),
+        _DayNavigator(
+          days: _days,
+          currentIndex: _currentDayIndex,
+          onDaySelected: _setDayIndex,
         ),
         const SizedBox(height: 16),
         Card(
@@ -182,13 +199,15 @@ class _ShiftGenerationPageState extends State<ShiftGenerationPage> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Qui potrai assegnare manualmente i rider al turno della giornata selezionata. La logica operativa sarà aggiunta in seguito.',
+                  'Seleziona i dipendenti che copriranno questo giorno. La logica definitiva sarà aggiunta in seguito.',
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
               ],
             ),
           ),
         ),
+        const SizedBox(height: 12),
+        Expanded(child: _buildEmployeeChecklist(currentDay)),
         const SizedBox(height: 12),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -221,7 +240,7 @@ class _ShiftGenerationPageState extends State<ShiftGenerationPage> {
         ),
         const SizedBox(height: 16),
         DropdownButtonFormField<int>(
-          value: _weeks,
+          initialValue: _weeks,
           decoration: const InputDecoration(
             labelText: 'Numero di settimane',
             border: OutlineInputBorder(),
@@ -259,46 +278,160 @@ class _ShiftGenerationPageState extends State<ShiftGenerationPage> {
         FilledButton.icon(
           icon: const Icon(Icons.play_arrow),
           label: const Text('Inizia pianificazione'),
-          onPressed: _startPlanning,
+          onPressed: _loadingColleagues ? null : _startPlanning,
         ),
+        if (_loadingColleagues)
+          const Padding(
+            padding: EdgeInsets.only(top: 12),
+            child: Center(child: CircularProgressIndicator()),
+          ),
+        if (_colleaguesError != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: Text(
+              'Errore caricando i dipendenti: $_colleaguesError',
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
+          ),
       ],
     );
   }
+
+  Widget _buildEmployeeChecklist(DateTime day) {
+    if (_loadingColleagues) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_colleaguesError != null) {
+      return Center(
+        child: Text(
+          'Errore nel recupero dei dipendenti: $_colleaguesError',
+          textAlign: TextAlign.center,
+        ),
+      );
+    }
+    if (_colleagues.isEmpty) {
+      return Center(
+        child: Text(
+          'Nessun dipendente associato al tuo shop.',
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
+      );
+    }
+
+    final key = _dayKey(day);
+    final selected = _dailySelections[key] ?? <String>{};
+
+    return ListView.separated(
+      itemCount: _colleagues.length,
+      separatorBuilder: (context, _) => const Divider(height: 1),
+      itemBuilder: (context, index) {
+        final profile = _colleagues[index];
+        final label = _labelFor(profile);
+        final checked = selected.contains(profile.id);
+        return CheckboxListTile(
+          value: checked,
+          title: Text(label),
+          subtitle: Text(profile.email),
+          onChanged: (_) => _toggleEmployeeForDay(key, profile.id),
+        );
+      },
+    );
+  }
+
+  void _toggleEmployeeForDay(String key, String employeeId) {
+    setState(() {
+      final set = _dailySelections.putIfAbsent(key, () => <String>{});
+      if (!set.add(employeeId)) {
+        set.remove(employeeId);
+      }
+    });
+  }
+
+  String _labelFor(Profile profile) {
+    final display = profile.displayName?.trim();
+    if (display != null && display.isNotEmpty) return display;
+    final username = profile.username?.trim();
+    if (username != null && username.isNotEmpty) return username;
+    return profile.email;
+  }
 }
 
-class _WeekContent extends StatelessWidget {
-  const _WeekContent({
-    required this.weekLabel,
-    required this.start,
-    required this.end,
-    required this.isActive,
+class _DayNavigator extends StatelessWidget {
+  const _DayNavigator({
+    required this.days,
+    required this.currentIndex,
+    required this.onDaySelected,
   });
 
-  final String weekLabel;
-  final DateTime start;
-  final DateTime end;
-  final bool isActive;
+  final List<DateTime> days;
+  final int currentIndex;
+  final ValueChanged<int> onDaySelected;
 
   @override
   Widget build(BuildContext context) {
-    final range =
-        '${DateFormat('dd MMM', 'it_IT').format(start)} – '
-        '${DateFormat('dd MMM', 'it_IT').format(end)}';
+    if (days.isEmpty) return const SizedBox.shrink();
+
+    final theme = Theme.of(context);
+    final locale = const Locale('it');
+    final dayFormatter = DateFormat('EEE', locale.toLanguageTag());
+    final dateFormatter = DateFormat('dd', locale.toLanguageTag());
+    final rangeFormatter = DateFormat('dd MMM', locale.toLanguageTag());
+
+    final List<Widget> sections = [];
+    final weekCount = (days.length / 7).ceil();
+    for (int week = 0; week < weekCount; week++) {
+      final start = week * 7;
+      final end = ((week + 1) * 7).clamp(0, days.length);
+      final weekDays = days.sublist(start, end);
+
+      sections
+        ..add(
+          Text(
+            'Settimana ${week + 1} · ${rangeFormatter.format(weekDays.first)} – ${rangeFormatter.format(weekDays.last)}',
+            style: theme.textTheme.bodySmall?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        )
+        ..add(const SizedBox(height: 6))
+        ..add(
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: List.generate(weekDays.length, (index) {
+              final day = weekDays[index];
+              final globalIndex = start + index;
+              final selected = currentIndex == globalIndex;
+              final baseColor = theme.colorScheme.primary;
+              return ChoiceChip(
+                label: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      dayFormatter.format(day).toUpperCase(),
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    Text(
+                      dateFormatter.format(day),
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  ],
+                ),
+                selected: selected,
+                onSelected: (_) => onDaySelected(globalIndex),
+                selectedColor: baseColor.withAlpha(
+                  (baseColor.a * 255 * 0.2).round(),
+                ),
+              );
+            }),
+          ),
+        )
+        ..add(const SizedBox(height: 12));
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(weekLabel, style: Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height: 4),
-        Text(range, style: Theme.of(context).textTheme.bodyMedium),
-        const SizedBox(height: 8),
-        Text(
-          isActive
-              ? 'Seleziona il giorno da pianificare usando i pulsanti sotto.'
-              : 'Tocca lo step per passare a questa settimana.',
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
-      ],
+      children: sections,
     );
   }
 }
