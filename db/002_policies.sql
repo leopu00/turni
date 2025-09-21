@@ -52,3 +52,52 @@ on public.availabilities
 for delete
 to authenticated
 using (rider_id = (select auth.uid()));
+
+-- ========== POLICIES: SHOP PENDING EMPLOYEES ==========
+drop policy if exists "pending employees select" on public.shop_pending_employees;
+create policy "pending employees select"
+on public.shop_pending_employees
+for select
+to authenticated
+using (
+  exists (
+    select 1
+    from public.profile_shops ps
+    join public.profiles pr on pr.id = ps.profile_id
+    where ps.shop_id = shop_id
+      and pr.id = auth.uid()
+      and pr.role = 'boss'
+  )
+);
+
+drop policy if exists "pending employees insert" on public.shop_pending_employees;
+create policy "pending employees insert"
+on public.shop_pending_employees
+for insert
+to authenticated
+with check (
+  exists (
+    select 1
+    from public.profile_shops ps
+    join public.profiles pr on pr.id = ps.profile_id
+    where ps.shop_id = shop_id
+      and pr.id = auth.uid()
+      and pr.role = 'boss'
+  )
+);
+
+drop policy if exists "pending employees delete" on public.shop_pending_employees;
+create policy "pending employees delete"
+on public.shop_pending_employees
+for delete
+to authenticated
+using (
+  exists (
+    select 1
+    from public.profile_shops ps
+    join public.profiles pr on pr.id = ps.profile_id
+    where ps.shop_id = shop_id
+      and pr.id = auth.uid()
+      and pr.role = 'boss'
+  )
+);

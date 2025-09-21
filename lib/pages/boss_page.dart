@@ -8,6 +8,7 @@ import '../state/session_store.dart';
 import 'login_page.dart';
 import 'requirements_page.dart';
 import 'riders_overview_page.dart';
+import 'boss_employees_page.dart';
 import 'boss_overview_page.dart';
 import 'shift_generation_page.dart';
 import 'shift_online_generation_page.dart';
@@ -264,6 +265,23 @@ class _BossPageState extends State<BossPage> {
               await _openOverview(context);
               if (!mounted) return;
               await _refreshFromRemote();
+            },
+          ),
+        ),
+        const SizedBox(height: 16),
+        Card(
+          child: ListTile(
+            leading: const Icon(Icons.group_outlined),
+            title: const Text('I miei dipendenti'),
+            subtitle: const Text(
+              'Gestisci l\'elenco dei dipendenti registrati e da registrare',
+            ),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const BossEmployeesPage()),
+              );
             },
           ),
         ),

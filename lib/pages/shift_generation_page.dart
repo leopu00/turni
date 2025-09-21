@@ -27,6 +27,7 @@ class _ShiftGenerationPageState extends State<ShiftGenerationPage> {
   bool _configured = false;
 
   List<Profile> _colleagues = const [];
+  List<PendingEmployee> _pendingManual = const [];
   bool _loadingColleagues = false;
   String? _colleaguesError;
   final Map<String, Set<String>> _dailySelections = {};
@@ -50,8 +51,11 @@ class _ShiftGenerationPageState extends State<ShiftGenerationPage> {
       final filtered = result.colleagues
           .where((p) => p.role != 'boss' || p.id == currentUserId)
           .toList();
+      final pendingManual = [...result.pending]
+        ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
       setState(() {
         _colleagues = filtered;
+        _pendingManual = pendingManual;
         _loadingColleagues = false;
       });
     } catch (e) {
@@ -321,20 +325,51 @@ class _ShiftGenerationPageState extends State<ShiftGenerationPage> {
     final key = _dayKey(day);
     final selected = _dailySelections[key] ?? <String>{};
 
-    return ListView.separated(
-      itemCount: _colleagues.length,
-      separatorBuilder: (context, _) => const Divider(height: 1),
-      itemBuilder: (context, index) {
-        final profile = _colleagues[index];
-        final label = _labelFor(profile);
-        final checked = selected.contains(profile.id);
-        return CheckboxListTile(
-          value: checked,
-          title: Text(label),
-          subtitle: Text(profile.email),
-          onChanged: (_) => _toggleEmployeeForDay(key, profile.id),
-        );
-      },
+    return ListView(
+      children: [
+        Text(
+          'Dipendenti registrati',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        const SizedBox(height: 8),
+        if (_colleagues.isEmpty)
+          Text(
+            'Nessun dipendente ha ancora effettuato l\'accesso.',
+            style: Theme.of(context).textTheme.bodyMedium,
+          )
+        else
+          ..._colleagues.map((profile) {
+            final label = _labelFor(profile);
+            final checked = selected.contains(profile.id);
+            return CheckboxListTile(
+              value: checked,
+              title: Text(label),
+              subtitle: Text(profile.email),
+              onChanged: (_) => _toggleEmployeeForDay(key, profile.id),
+            );
+          }),
+        const SizedBox(height: 16),
+        Text(
+          'Dipendenti da registrare',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        const SizedBox(height: 8),
+        if (_pendingManual.isEmpty)
+          Text(
+            'Nessun nominativo manuale.',
+            style: Theme.of(context).textTheme.bodyMedium,
+          )
+        else
+          ..._pendingManual.map((employee) {
+            final checked = selected.contains(employee.id);
+            return CheckboxListTile(
+              value: checked,
+              title: Text(employee.name),
+              subtitle: const Text('Da registrare'),
+              onChanged: (_) => _toggleEmployeeForDay(key, employee.id),
+            );
+          }),
+      ],
     );
   }
 

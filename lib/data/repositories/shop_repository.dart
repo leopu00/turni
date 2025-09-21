@@ -2,16 +2,30 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../models/supabase/profile.dart';
 
+class PendingEmployee {
+  const PendingEmployee({
+    required this.id,
+    required this.shopId,
+    required this.name,
+  });
+
+  final String id;
+  final String shopId;
+  final String name;
+}
+
 class ShopColleaguesResult {
   const ShopColleaguesResult({
     required this.shopId,
     required this.shopName,
     required this.colleagues,
+    required this.pending,
   });
 
   final String? shopId;
   final String? shopName;
   final List<Profile> colleagues;
+  final List<PendingEmployee> pending;
 
   bool get hasShop => shopId != null;
 }
@@ -29,6 +43,7 @@ class ShopRepository {
         shopId: null,
         shopName: null,
         colleagues: [],
+        pending: [],
       );
     }
 
@@ -44,6 +59,7 @@ class ShopRepository {
         shopId: null,
         shopName: null,
         colleagues: [],
+        pending: [],
       );
     }
 
@@ -72,10 +88,48 @@ class ShopRepository {
         (b.displayName ?? b.email).toLowerCase(),
       ),
     );
+    final pendingRows = await _db
+        .from('shop_pending_employees')
+        .select('id, name, shop_id')
+        .eq('shop_id', shopId)
+        .order('created_at');
+
+    final pending = pendingRows
+        .map<PendingEmployee>(
+          (row) => PendingEmployee(
+            id: row['id'] as String,
+            shopId: row['shop_id'] as String,
+            name: row['name'] as String,
+          ),
+        )
+        .toList();
+
     return ShopColleaguesResult(
       shopId: shopId,
       shopName: shopName,
       colleagues: colleagues,
+      pending: pending,
     );
+  }
+
+  Future<PendingEmployee> addPendingEmployee({
+    required String shopId,
+    required String name,
+  }) async {
+    final rows = await _db
+        .from('shop_pending_employees')
+        .insert({'shop_id': shopId, 'name': name})
+        .select('id, name, shop_id')
+        .single();
+
+    return PendingEmployee(
+      id: rows['id'] as String,
+      shopId: rows['shop_id'] as String,
+      name: rows['name'] as String,
+    );
+  }
+
+  Future<void> deletePendingEmployee(String id) async {
+    await _db.from('shop_pending_employees').delete().eq('id', id);
   }
 }
