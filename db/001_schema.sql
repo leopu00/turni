@@ -12,6 +12,29 @@ create table if not exists public.profiles (
   created_at timestamptz default now()
 );
 
+-- Assicura che username sia valorizzato automaticamente dalla parte sinistra dell'email.
+create or replace function public.set_profile_username()
+returns trigger as $$
+begin
+  if new.email is not null and (new.username is null or btrim(new.username) = '') then
+    new.username := split_part(new.email, '@', 1);
+  end if;
+  return new;
+end;
+$$ language plpgsql;
+
+drop trigger if exists profiles_set_username on public.profiles;
+create trigger profiles_set_username
+before insert or update on public.profiles
+for each row
+execute function public.set_profile_username();
+
+-- Backfill per eventuali record esistenti senza username.
+update public.profiles
+set username = split_part(email, '@', 1)
+where email is not null
+  and (username is null or btrim(username) = '');
+
 alter table public.profiles enable row level security;
 
 -- ========== AVAILABILITIES (sera 19–23, on/off per giorno) ==========
