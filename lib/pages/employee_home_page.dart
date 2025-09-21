@@ -13,13 +13,14 @@ class EmployeeHomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final session = SessionStore.instance;
-    final name = session.employeeName ?? 'Dipendente';
+    final identifier = session.employeeIdentifier;
+    final displayName = session.employeeDisplayName ?? 'Dipendente';
     final store = AvailabilityStore.instance;
-    final count = store.selectedFor(name).length;
+    final count = identifier == null ? 0 : store.selectedFor(identifier).length;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Ciao, $name'),
+        title: Text('Ciao, $displayName'),
         actions: [
           IconButton(
             tooltip: 'Logout',
@@ -57,7 +58,10 @@ class EmployeeHomePage extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => AvailabilityPage(employee: name),
+                      builder: (_) => AvailabilityPage(
+                        employee: identifier ?? displayName,
+                        displayName: displayName,
+                      ),
                     ),
                   );
                 },

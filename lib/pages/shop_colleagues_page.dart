@@ -75,20 +75,18 @@ class _ShopColleaguesPageState extends State<ShopColleaguesPage> {
                 final Profile profile = result.colleagues[index - 1];
                 final currentId = Supabase.instance.client.auth.currentUser?.id;
                 final isMe = profile.id == currentId;
+                final displayName =
+                    (profile.displayName?.trim().isNotEmpty ?? false)
+                    ? profile.displayName!.trim()
+                    : (profile.username?.trim().isNotEmpty ?? false)
+                    ? profile.username!.trim()
+                    : profile.email;
+                final initial = displayName.isEmpty
+                    ? '?'
+                    : displayName[0].toUpperCase();
                 return ListTile(
-                  leading: CircleAvatar(
-                    child: Text(
-                      (profile.username ?? profile.email).trim().isEmpty
-                          ? '?'
-                          : (profile.username ?? profile.email)[0]
-                                .toUpperCase(),
-                    ),
-                  ),
-                  title: Text(
-                    profile.username?.isNotEmpty == true
-                        ? profile.username!
-                        : profile.email,
-                  ),
+                  leading: CircleAvatar(child: Text(initial)),
+                  title: Text(displayName),
                   subtitle: Text(
                     isMe ? '${profile.email} (sei tu)' : profile.email,
                   ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../data/repositories/availability_repository.dart';
+import '../models/supabase/profile.dart';
 import '../state/availability_store.dart';
 import '../state/session_store.dart';
 import 'login_page.dart';
@@ -22,13 +23,15 @@ class _BossPageState extends State<BossPage> {
   bool _loading = false;
   String? _loadError;
   Map<String, List<DateTime>> _data = {};
+  Map<String, Profile> _profiles = {};
   DateTime? _periodStart;
   late final AvailabilityRepository _repository;
 
   @override
   void initState() {
     super.initState();
-    _repository = widget.availabilityRepository ?? AvailabilityRepository.instance;
+    _repository =
+        widget.availabilityRepository ?? AvailabilityRepository.instance;
     store.addListener(_onChanged);
     _refreshFromRemote();
   }
@@ -50,7 +53,8 @@ class _BossPageState extends State<BossPage> {
     });
     try {
       await _repository.ensureProfileRow();
-      final raw = await _repository.getAllForBoss();
+      final result = await _repository.getAllForBoss();
+      final raw = result.byEmployee;
       final normalized = <String, List<DateTime>>{};
       DateTime? earliest;
       raw.forEach((email, days) {
@@ -76,6 +80,7 @@ class _BossPageState extends State<BossPage> {
       if (!mounted) return;
       setState(() {
         _data = normalized;
+        _profiles = result.profiles;
         _periodStart = monday;
         _loadError = null;
       });
@@ -99,8 +104,18 @@ class _BossPageState extends State<BossPage> {
   bool get _hasData => _data.values.any((list) => list.isNotEmpty);
 
   List<String> get _employees {
-    final list = _data.keys.toList()..sort();
+    final list = _data.keys.toList()
+      ..sort((a, b) => _labelFor(a).compareTo(_labelFor(b)));
     return list;
+  }
+
+  String _labelFor(String email) {
+    final profile = _profiles[email];
+    final display = profile?.displayName?.trim();
+    if (display != null && display.isNotEmpty) return display;
+    final username = profile?.username?.trim();
+    if (username != null && username.isNotEmpty) return username;
+    return email;
   }
 
   int _availableCountFor(DateTime day) {
@@ -270,7 +285,7 @@ class _BossPageState extends State<BossPage> {
       final sel = _selectedFor(e);
       return DataRow(
         cells: [
-          DataCell(Text(e)),
+          DataCell(Text(_labelFor(e))),
           ...days.map((d) {
             final picked = sel.any((x) => sameDay(x, d));
             return DataCell(

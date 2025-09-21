@@ -4,8 +4,9 @@ import '../state/availability_store.dart';
 import '../data/repositories/availability_repository.dart';
 
 class AvailabilityPage extends StatefulWidget {
-  final String employee;
-  const AvailabilityPage({super.key, required this.employee});
+  final String employee; // identifier (es. email)
+  final String? displayName;
+  const AvailabilityPage({super.key, required this.employee, this.displayName});
 
   @override
   State<AvailabilityPage> createState() => _AvailabilityPageState();
@@ -13,7 +14,7 @@ class AvailabilityPage extends StatefulWidget {
 
 class _AvailabilityPageState extends State<AvailabilityPage> {
   late final DateTime _startMonday; // prossimo lunedì
-  late final List<DateTime> _days;  // 14 giorni da _startMonday
+  late final List<DateTime> _days; // 14 giorni da _startMonday
   final Set<String> _selected = {}; // yyyy-MM-dd dei giorni selezionati
 
   bool _loading = true;
@@ -46,9 +47,13 @@ class _AvailabilityPageState extends State<AvailabilityPage> {
   DateTime _computeNextMonday(DateTime from) {
     // weekday: Mon=1 ... Sun=7
     final int wd = from.weekday;
-    final int daysUntilNextMonday = 8 - wd; // se oggi è lunedì -> 7; se domenica -> 1
-    final DateTime nextMonday = DateTime(from.year, from.month, from.day)
-        .add(Duration(days: daysUntilNextMonday));
+    final int daysUntilNextMonday =
+        8 - wd; // se oggi è lunedì -> 7; se domenica -> 1
+    final DateTime nextMonday = DateTime(
+      from.year,
+      from.month,
+      from.day,
+    ).add(Duration(days: daysUntilNextMonday));
     return nextMonday;
   }
 
@@ -96,14 +101,18 @@ class _AvailabilityPageState extends State<AvailabilityPage> {
       return;
     }
 
-    final selectedDates =
-        _days.where((d) => _selected.contains(_keyForDate(d))).toList();
+    final displayName = (widget.displayName?.trim().isNotEmpty ?? false)
+        ? widget.displayName!.trim()
+        : widget.employee;
+
+    final selectedDates = _days
+        .where((d) => _selected.contains(_keyForDate(d)))
+        .toList();
 
     setState(() => _saving = true);
     try {
       // Salva su DB per l'utente corrente
-      await AvailabilityRepository.instance
-          .setMyDays(selectedDates.toSet());
+      await AvailabilityRepository.instance.setMyDays(selectedDates.toSet());
 
       // Mantieni anche lo store in sync per la UI corrente
       AvailabilityStore.instance.setSelection(
@@ -116,7 +125,7 @@ class _AvailabilityPageState extends State<AvailabilityPage> {
       final chosen = selectedDates.map((d) => df.format(d)).join(', ');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${widget.employee}: 19:00–23:00 per: $chosen')),
+        SnackBar(content: Text('$displayName: 19:00–23:00 per: $chosen')),
       );
 
       Future.microtask(() {
@@ -124,9 +133,9 @@ class _AvailabilityPageState extends State<AvailabilityPage> {
       });
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Errore salvataggio: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Errore salvataggio: $e')));
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -185,7 +194,9 @@ class _AvailabilityPageState extends State<AvailabilityPage> {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                   side: BorderSide(
-                    color: selected ? Colors.teal : Theme.of(context).dividerColor,
+                    color: selected
+                        ? Colors.teal
+                        : Theme.of(context).dividerColor,
                   ),
                 ),
               );
@@ -196,91 +207,100 @@ class _AvailabilityPageState extends State<AvailabilityPage> {
     }
 
     return Scaffold(
-      appBar: AppBar(title: Text('Disponibilità — ${widget.employee}')),
+      appBar: AppBar(
+        title: Text(
+          'Disponibilità — '
+          '${(widget.displayName?.trim().isNotEmpty ?? false) ? widget.displayName!.trim() : widget.employee}',
+        ),
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: _loading
             ? const Center(child: CircularProgressIndicator())
             : _loadError != null
-                ? Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(_loadError!, textAlign: TextAlign.center),
-                        const SizedBox(height: 12),
-                        FilledButton(
-                          onPressed: () {
-                            setState(() {
-                              _loading = true;
-                              _loadError = null;
-                            });
-                            _preloadFromDb();
-                          },
-                          child: const Text('Riprova'),
-                        ),
-                      ],
+            ? Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(_loadError!, textAlign: TextAlign.center),
+                    const SizedBox(height: 12),
+                    FilledButton(
+                      onPressed: () {
+                        setState(() {
+                          _loading = true;
+                          _loadError = null;
+                        });
+                        _preloadFromDb();
+                      },
+                      child: const Text('Riprova'),
                     ),
-                  )
-                : Column(
-                    children: [
-                      // Banner informativo
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(12),
-                        margin: const EdgeInsets.only(bottom: 12),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.teal, width: 1.5),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          'Seleziona i giorni per ${widget.employee} (19:00–23:00)\n'
-                          'Periodo: ${dfRange.format(week1.first)} – ${dfRange.format(week2.last)} (da lunedì)',
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(fontSize: 14),
-                        ),
-                      ),
+                  ],
+                ),
+              )
+            : Column(
+                children: [
+                  // Banner informativo
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.teal, width: 1.5),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      'Seleziona i giorni per ${widget.employee} (19:00–23:00)\n'
+                      'Periodo: ${dfRange.format(week1.first)} – ${dfRange.format(week2.last)} (da lunedì)',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                  ),
 
-                      // Contenuto scrollabile: settimana 1 e settimana 2 una sotto l'altra
-                      Expanded(
-                        child: SingleChildScrollView(
-                          child: Column(
-                            children: [
-                              weekSection('Settimana 1', week1),
-                              const SizedBox(height: 16),
-                              weekSection('Settimana 2', week2),
-                            ],
-                          ),
-                        ),
-                      ),
-
-                      // Azioni
-                      Row(
+                  // Contenuto scrollabile: settimana 1 e settimana 2 una sotto l'altra
+                  Expanded(
+                    child: SingleChildScrollView(
+                      child: Column(
                         children: [
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: _saving ? null : () => setState(_selected.clear),
-                              icon: const Icon(Icons.clear),
-                              label: const Text('Reset'),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: FilledButton.icon(
-                              onPressed: _saving ? null : _save,
-                              icon: _saving
-                                  ? const SizedBox(
-                                      width: 16,
-                                      height: 16,
-                                      child: CircularProgressIndicator(strokeWidth: 2),
-                                    )
-                                  : const Icon(Icons.save),
-                              label: Text('Salva (${_selected.length})'),
-                            ),
-                          ),
+                          weekSection('Settimana 1', week1),
+                          const SizedBox(height: 16),
+                          weekSection('Settimana 2', week2),
                         ],
+                      ),
+                    ),
+                  ),
+
+                  // Azioni
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: _saving
+                              ? null
+                              : () => setState(_selected.clear),
+                          icon: const Icon(Icons.clear),
+                          label: const Text('Reset'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: FilledButton.icon(
+                          onPressed: _saving ? null : _save,
+                          icon: _saving
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(Icons.save),
+                          label: Text('Salva (${_selected.length})'),
+                        ),
                       ),
                     ],
                   ),
+                ],
+              ),
       ),
     );
   }

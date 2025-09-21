@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../data/repositories/availability_repository.dart';
+import '../models/supabase/profile.dart';
 import '../state/availability_store.dart';
 import '../state/session_store.dart';
 import 'login_page.dart';
@@ -20,6 +21,7 @@ class _RidersOverviewPageState extends State<RidersOverviewPage> {
   bool _loading = false;
   String? _loadError;
   Map<String, List<DateTime>> _data = {};
+  Map<String, Profile> _profiles = {};
   DateTime? _periodStart;
 
   @override
@@ -46,7 +48,8 @@ class _RidersOverviewPageState extends State<RidersOverviewPage> {
     });
     try {
       await AvailabilityRepository.instance.ensureProfileRow();
-      final raw = await AvailabilityRepository.instance.getAllForBoss();
+      final result = await AvailabilityRepository.instance.getAllForBoss();
+      final raw = result.byEmployee;
       final normalized = <String, List<DateTime>>{};
       DateTime? earliest;
       raw.forEach((email, days) {
@@ -72,6 +75,7 @@ class _RidersOverviewPageState extends State<RidersOverviewPage> {
       if (!mounted) return;
       setState(() {
         _data = normalized;
+        _profiles = result.profiles;
         _periodStart = monday;
         _loadError = null;
       });
@@ -153,8 +157,18 @@ class _RidersOverviewPageState extends State<RidersOverviewPage> {
   bool get _hasData => _data.values.any((list) => list.isNotEmpty);
 
   List<String> get _employees {
-    final list = _data.keys.toList()..sort();
+    final list = _data.keys.toList()
+      ..sort((a, b) => _labelFor(a).compareTo(_labelFor(b)));
     return list;
+  }
+
+  String _labelFor(String email) {
+    final profile = _profiles[email];
+    final display = profile?.displayName?.trim();
+    if (display != null && display.isNotEmpty) return display;
+    final username = profile?.username?.trim();
+    if (username != null && username.isNotEmpty) return username;
+    return email;
   }
 
   List<DateTime> _selectedFor(String employee) => _data[employee] ?? const [];
@@ -240,7 +254,7 @@ class _RidersOverviewPageState extends State<RidersOverviewPage> {
         const SizedBox(height: 8),
         for (final employee in employees)
           ..._buildEmployeeSection(
-            label: employee,
+            label: _labelFor(employee),
             all: _selectedFor(employee),
             week1End: week1End,
             df: df,

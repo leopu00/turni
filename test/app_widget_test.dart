@@ -17,7 +17,8 @@ class MockSupabaseClient extends Mock implements SupabaseClient {}
 
 class MockGoTrueClient extends Mock implements GoTrueClient {}
 
-class MockAvailabilityRepository extends Mock implements AvailabilityRepository {}
+class MockAvailabilityRepository extends Mock
+    implements AvailabilityRepository {}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -32,7 +33,9 @@ void main() {
   });
 
   group('Login navigation', () {
-    testWidgets('navigates to BossPage when profile role is boss', (tester) async {
+    testWidgets('navigates to BossPage when profile role is boss', (
+      tester,
+    ) async {
       final view = tester.view;
       view.physicalSize = const Size(1200, 800);
       view.devicePixelRatio = 1.0;
@@ -58,10 +61,14 @@ void main() {
       when(() => mockClient.auth).thenReturn(mockAuth);
 
       when(() => mockAuth.currentSession).thenReturn(null);
-      when(() => mockAuth.onAuthStateChange).thenAnswer((_) => authController.stream);
+      when(
+        () => mockAuth.onAuthStateChange,
+      ).thenAnswer((_) => authController.stream);
 
       when(() => mockRepo.ensureProfileRow()).thenAnswer((_) async {});
-      when(() => mockRepo.getAllForBoss()).thenAnswer((_) async => {});
+      when(() => mockRepo.getAllForBoss()).thenAnswer(
+        (_) async => BossAvailabilityResult(byEmployee: {}, profiles: {}),
+      );
       when(() => mockRepo.getMyDays()).thenAnswer((_) async => []);
 
       final user = User(
@@ -97,7 +104,9 @@ void main() {
       expect(find.byType(BossPage), findsOneWidget);
     });
 
-    testWidgets('navigates to EmployeeHomePage when profile role is employee',(tester) async {
+    testWidgets('navigates to EmployeeHomePage when profile role is employee', (
+      tester,
+    ) async {
       final view = tester.view;
       view.physicalSize = const Size(1200, 800);
       view.devicePixelRatio = 1.0;
@@ -123,10 +132,14 @@ void main() {
       when(() => mockClient.auth).thenReturn(mockAuth);
 
       when(() => mockAuth.currentSession).thenReturn(null);
-      when(() => mockAuth.onAuthStateChange).thenAnswer((_) => authController.stream);
+      when(
+        () => mockAuth.onAuthStateChange,
+      ).thenAnswer((_) => authController.stream);
 
       when(() => mockRepo.ensureProfileRow()).thenAnswer((_) async {});
-      when(() => mockRepo.getAllForBoss()).thenAnswer((_) async => {});
+      when(() => mockRepo.getAllForBoss()).thenAnswer(
+        (_) async => BossAvailabilityResult(byEmployee: {}, profiles: {}),
+      );
       when(() => mockRepo.getMyDays()).thenAnswer((_) async => []);
 
       final user = User(
@@ -163,7 +176,9 @@ void main() {
     });
   });
 
-  testWidgets('BossPage renders availability data returned from repository', (tester) async {
+  testWidgets('BossPage renders availability data returned from repository', (
+    tester,
+  ) async {
     final view = tester.view;
     view.physicalSize = const Size(1200, 800);
     view.devicePixelRatio = 1.0;
@@ -190,9 +205,7 @@ void main() {
     );
 
     await tester.pumpWidget(
-      MaterialApp(
-        home: BossPage(availabilityRepository: mockRepo),
-      ),
+      MaterialApp(home: BossPage(availabilityRepository: mockRepo)),
     );
 
     await tester.pump();

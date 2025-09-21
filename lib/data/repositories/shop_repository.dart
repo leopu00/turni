@@ -56,7 +56,7 @@ class ShopRepository {
 
     final data = await _db
         .from('profile_shops')
-        .select('profiles(id,email,username,role)')
+        .select('profiles(id,email,username,display_name,role)')
         .eq('shop_id', shopId);
 
     final colleagues = <Profile>[];
@@ -66,8 +66,12 @@ class ShopRepository {
       colleagues.add(Profile.fromMap(profileMap));
     }
 
-    // Ordina per email per una lista prevedibile (username non ancora popolato).
-    colleagues.sort((a, b) => a.email.compareTo(b.email));
+    // Ordina per display name (fallback email) per una lista prevedibile.
+    colleagues.sort(
+      (a, b) => (a.displayName ?? a.email).toLowerCase().compareTo(
+        (b.displayName ?? b.email).toLowerCase(),
+      ),
+    );
     return ShopColleaguesResult(
       shopId: shopId,
       shopName: shopName,

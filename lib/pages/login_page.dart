@@ -56,7 +56,7 @@ class _LoginPageState extends State<LoginPage> {
     try {
       await _availabilityRepository.ensureProfileRow();
       final all = await _availabilityRepository.getAllForBoss();
-      AvailabilityStore.instance.hydrateAllForBoss(all);
+      AvailabilityStore.instance.hydrateAllForBoss(all.byEmployee);
     } catch (_) {}
   }
 
@@ -109,6 +109,7 @@ class _LoginPageState extends State<LoginPage> {
 
   Future<void> _navigateByRole(Session authSession) async {
     var role = 'employee';
+    String? displayName;
     try {
       final resolver = _roleResolver;
       if (resolver != null) {
@@ -116,11 +117,13 @@ class _LoginPageState extends State<LoginPage> {
       } else {
         final res = await _client
             .from('profiles')
-            .select()
+            .select('role, display_name')
             .eq('id', authSession.user.id)
             .limit(1);
         if (res.isNotEmpty) {
-          role = (res.first['role'] as String?) ?? 'employee';
+          final row = res.first;
+          role = (row['role'] as String?) ?? 'employee';
+          displayName = row['display_name'] as String?;
         }
       }
     } catch (_) {
@@ -135,16 +138,22 @@ class _LoginPageState extends State<LoginPage> {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (_) => BossPage(
-            availabilityRepository: _availabilityRepository,
-          ),
+          builder: (_) =>
+              BossPage(availabilityRepository: _availabilityRepository),
         ),
       );
     } else {
       final email = authSession.user.email ?? '';
       await _hydrateAvailability(email);
       if (!mounted) return;
-      session.loginEmployee(email);
+      session.loginEmployee(
+        identifier: email,
+        displayName:
+            displayName ??
+            (authSession.user.userMetadata?['full_name'] as String?) ??
+            (authSession.user.userMetadata?['name'] as String?) ??
+            email,
+      );
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const EmployeeHomePage()),
@@ -186,6 +195,7 @@ class _LoginPageState extends State<LoginPage> {
       return;
     }
 
+    String? displayName;
     try {
       await _client.auth.signInWithPassword(
         email: userInput,
@@ -199,11 +209,14 @@ class _LoginPageState extends State<LoginPage> {
         if (uid != null) {
           final res = await _client
               .from('profiles')
-              .select()
+              .select('role, display_name')
               .eq('id', uid)
               .limit(1);
-          if (res.isNotEmpty)
-            role = (res.first['role'] as String?) ?? 'employee';
+          if (res.isNotEmpty) {
+            final row = res.first;
+            role = (row['role'] as String?) ?? 'employee';
+            displayName = row['display_name'] as String?;
+          }
         }
       } catch (_) {}
 
@@ -215,16 +228,23 @@ class _LoginPageState extends State<LoginPage> {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (_) => BossPage(
-              availabilityRepository: _availabilityRepository,
-            ),
+            builder: (_) =>
+                BossPage(availabilityRepository: _availabilityRepository),
           ),
         );
       } else {
         final email = _client.auth.currentUser?.email ?? userInput;
         await _hydrateAvailability(email);
         if (!mounted) return;
-        session.loginEmployee(email);
+        final user = _client.auth.currentUser;
+        session.loginEmployee(
+          identifier: email,
+          displayName:
+              displayName ??
+              (user?.userMetadata?['full_name'] as String?) ??
+              (user?.userMetadata?['name'] as String?) ??
+              email,
+        );
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => const EmployeeHomePage()),

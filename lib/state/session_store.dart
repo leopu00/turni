@@ -7,29 +7,36 @@ class SessionStore extends ChangeNotifier {
   static final SessionStore instance = SessionStore._();
 
   UserRole? _role;
-  String? _employeeName;
+  String? _employeeIdentifier; // tipicamente email
+  String? _employeeDisplayName;
 
   UserRole? get role => _role;
-  String? get employeeName => _employeeName;
+  String? get employeeIdentifier => _employeeIdentifier;
+  String? get employeeDisplayName => _employeeDisplayName;
   bool get isLoggedIn => _role != null;
   bool get isEmployee => _role == UserRole.employee;
   bool get isBoss => _role == UserRole.boss;
 
-  void loginEmployee(String name) {
+  void loginEmployee({required String identifier, String? displayName}) {
     _role = UserRole.employee;
-    _employeeName = name.trim();
+    _employeeIdentifier = identifier.trim();
+    _employeeDisplayName = displayName?.trim().isNotEmpty == true
+        ? displayName!.trim()
+        : _employeeIdentifier;
     notifyListeners();
   }
 
   void loginBoss() {
     _role = UserRole.boss;
-    _employeeName = null;
+    _employeeIdentifier = null;
+    _employeeDisplayName = null;
     notifyListeners();
   }
 
   void logout() {
     _role = null;
-    _employeeName = null;
+    _employeeIdentifier = null;
+    _employeeDisplayName = null;
     notifyListeners();
   }
 }
