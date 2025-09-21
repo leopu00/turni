@@ -8,6 +8,9 @@ import '../state/session_store.dart';
 import 'login_page.dart';
 import 'requirements_page.dart';
 import 'riders_overview_page.dart';
+import 'boss_overview_page.dart';
+import 'shift_generation_page.dart';
+import 'shift_online_generation_page.dart';
 
 class BossPage extends StatefulWidget {
   const BossPage({super.key, this.availabilityRepository});
@@ -98,9 +101,6 @@ class _BossPageState extends State<BossPage> {
     }
   }
 
-  bool sameDay(DateTime a, DateTime b) =>
-      a.year == b.year && a.month == b.month && a.day == b.day;
-
   bool get _hasData => _data.values.any((list) => list.isNotEmpty);
 
   List<String> get _employees {
@@ -118,26 +118,21 @@ class _BossPageState extends State<BossPage> {
     return email;
   }
 
-  int _availableCountFor(DateTime day) {
-    final normalized = DateTime(day.year, day.month, day.day);
-    int count = 0;
-    for (final list in _data.values) {
-      if (list.any((d) => sameDay(d, normalized))) count++;
-    }
-    return count;
-  }
-
-  List<DateTime> _selectedFor(String employee) => _data[employee] ?? const [];
-
   @override
   Widget build(BuildContext context) {
-    final start = _periodStart;
-    final dfShort = DateFormat('EEE dd', 'it_IT');
-
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Boss — Panoramica"),
+        title: const Text('Boss'),
         actions: [
+          IconButton(
+            tooltip: 'Panoramica disponibilità',
+            onPressed: () async {
+              await _openOverview(context);
+              if (!mounted) return;
+              await _refreshFromRemote();
+            },
+            icon: const Icon(Icons.table_chart_outlined),
+          ),
           IconButton(
             tooltip: 'Disponibilità per rider',
             onPressed: () async {
@@ -211,110 +206,160 @@ class _BossPageState extends State<BossPage> {
                 ],
               ),
             )
-          : start == null || !_hasData
-          ? const Center(
-              child: Text(
-                'Nessuna disponibilità ricevuta.\nChiedi ai rider di selezionare i giorni.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 16),
-              ),
-            )
-          : ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                Text(
-                  'Periodo: ${DateFormat('dd MMM', 'it_IT').format(start)} – '
-                  '${DateFormat('dd MMM', 'it_IT').format(start.add(const Duration(days: 13)))}',
-                  style: TextStyle(color: Theme.of(context).hintColor),
-                ),
-                const SizedBox(height: 12),
-
-                // Tabelle per Settimana 1 e 2
-                _weekTable(
-                  context: context,
-                  title: 'Settimana 1',
-                  days: List.generate(7, (i) => start.add(Duration(days: i))),
-                  dfShort: dfShort,
-                ),
-                _weekTable(
-                  context: context,
-                  title: 'Settimana 2',
-                  days: List.generate(
-                    7,
-                    (i) => start.add(Duration(days: 7 + i)),
-                  ),
-                  dfShort: dfShort,
-                ),
-              ],
-            ),
+          : _buildMainContent(context),
     );
   }
 
-  Widget _weekTable({
-    required BuildContext context,
-    required String title,
-    required List<DateTime> days,
-    required DateFormat dfShort,
-  }) {
-    final employees = _employees;
+  Widget _buildMainContent(BuildContext context) {
+    final totalRiders = _employees.length;
+    final totalSelections = _data.values.fold<int>(
+      0,
+      (sum, days) => sum + days.length,
+    );
 
-    final columns = <DataColumn>[
-      const DataColumn(label: Text('Rider')),
-      ...days.map((d) {
-        final req = store.requirementFor(d);
-        final avail = _availableCountFor(d);
-        return DataColumn(
-          label: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(dfShort.format(d)),
-              Text(
-                'req $req / avail $avail',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: Theme.of(context).hintColor,
-                ),
-              ),
-            ],
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        FilledButton.icon(
+          icon: const Icon(Icons.meeting_room_outlined),
+          label: const Text('Genera turni in presenza'),
+          style: FilledButton.styleFrom(
+            textStyle: const TextStyle(fontSize: 16),
           ),
-        );
-      }),
-    ];
-
-    final rows = employees.map((e) {
-      final sel = _selectedFor(e);
-      return DataRow(
-        cells: [
-          DataCell(Text(_labelFor(e))),
-          ...days.map((d) {
-            final picked = sel.any((x) => sameDay(x, d));
-            return DataCell(
-              Icon(
-                picked ? Icons.check_circle : Icons.cancel,
-                size: 18,
-                color: picked ? Colors.teal : Theme.of(context).disabledColor,
+          onPressed: () async {
+            await Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const ShiftGenerationPage()),
+            );
+            if (!mounted) return;
+            await _refreshFromRemote();
+          },
+        ),
+        const SizedBox(height: 12),
+        FilledButton.tonalIcon(
+          icon: const Icon(Icons.cloud_sync_outlined),
+          label: const Text('Genera turni da disponibilità online'),
+          style: FilledButton.styleFrom(
+            textStyle: const TextStyle(fontSize: 16),
+          ),
+          onPressed: () async {
+            await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const ShiftOnlineGenerationPage(),
               ),
             );
-          }),
-        ],
-      );
-    }).toList();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(top: 16, bottom: 8),
-          child: Text(
-            title,
-            style: const TextStyle(fontWeight: FontWeight.bold),
+          },
+        ),
+        const SizedBox(height: 24),
+        Card(
+          child: ListTile(
+            leading: const Icon(Icons.table_chart_outlined),
+            title: const Text('Panoramica disponibilità'),
+            subtitle: const Text(
+              'Apri la vista dettagliata di settimane e rider',
+            ),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () async {
+              await _openOverview(context);
+              if (!mounted) return;
+              await _refreshFromRemote();
+            },
           ),
         ),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: DataTable(columns: columns, rows: rows),
-        ),
+        const SizedBox(height: 24),
+        if (_hasData)
+          _SummaryCard(
+            periodStart: _periodStart,
+            riderCount: totalRiders,
+            totalSelections: totalSelections,
+          )
+        else
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(
+                'Ancora nessuna disponibilità registrata. Invita i rider a compilare la loro agenda.',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ),
+          ),
       ],
+    );
+  }
+
+  Future<void> _openOverview(BuildContext context) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const BossOverviewPage()),
+    );
+  }
+}
+
+class _SummaryCard extends StatelessWidget {
+  const _SummaryCard({
+    required this.periodStart,
+    required this.riderCount,
+    required this.totalSelections,
+  });
+
+  final DateTime? periodStart;
+  final int riderCount;
+  final int totalSelections;
+
+  @override
+  Widget build(BuildContext context) {
+    final periodText = periodStart == null
+        ? 'Periodo non impostato'
+        : 'Periodo attivo: ${DateFormat('dd MMM', 'it_IT').format(periodStart!)} – '
+              '${DateFormat('dd MMM', 'it_IT').format(periodStart!.add(const Duration(days: 13)))}';
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Riepilogo disponibilità',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            Text(periodText),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 12,
+              runSpacing: 8,
+              children: [
+                _StatChip(
+                  icon: Icons.people_outline,
+                  label: '$riderCount rider',
+                ),
+                _StatChip(
+                  icon: Icons.event_available_outlined,
+                  label: '$totalSelections disponibilità registrate',
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _StatChip extends StatelessWidget {
+  const _StatChip({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Chip(
+      avatar: Icon(icon, size: 18),
+      label: Text(label),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
     );
   }
 }
