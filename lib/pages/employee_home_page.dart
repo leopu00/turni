@@ -4,7 +4,9 @@ import '../state/availability_store.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'availability_page.dart';
 import 'login_page.dart';
+import 'latest_selection_results_page.dart';
 import 'my_availability_page.dart';
+import 'my_shifts_page.dart';
 import 'shop_colleagues_page.dart';
 
 class EmployeeHomePage extends StatelessWidget {
@@ -82,6 +84,44 @@ class EmployeeHomePage extends StatelessWidget {
                     context,
                     MaterialPageRoute(
                       builder: (_) => const MyAvailabilityPage(),
+                    ),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 12),
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.fact_check_outlined),
+                title: const Text('Risultato turni ultima selezione'),
+                subtitle: const Text(
+                  'Controlla l\'assegnazione più recente dei turni',
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const LatestSelectionResultsPage(),
+                    ),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 12),
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.schedule_outlined),
+                title: const Text('I miei turni attuali'),
+                subtitle: const Text(
+                  'Visualizza i turni della selezione corrente',
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const MyShiftsPage(),
                     ),
                   );
                 },
