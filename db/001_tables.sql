@@ -111,3 +111,15 @@ create table if not exists public.shop_pending_employees (
 );
 
 alter table public.shop_pending_employees enable row level security;
+
+-- ========== MANUAL SHIFT ASSIGNMENTS ==========
+create table if not exists public.manual_shift_assignments (
+  id uuid primary key default gen_random_uuid(),
+  shop_id uuid not null references public.shops(id) on delete cascade,
+  employee_id uuid not null,
+  day date not null,
+  created_at timestamptz default now(),
+  unique (shop_id, employee_id, day)
+);
+
+alter table public.manual_shift_assignments enable row level security;

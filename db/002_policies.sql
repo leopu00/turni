@@ -101,3 +101,52 @@ using (
       and pr.role = 'boss'
   )
 );
+
+-- ========== POLICIES: MANUAL SHIFT ASSIGNMENTS ==========
+drop policy if exists "manual shifts select shop bosses" on public.manual_shift_assignments;
+create policy "manual shifts select shop bosses"
+on public.manual_shift_assignments
+for select
+to authenticated
+using (
+  exists (
+    select 1
+    from public.profile_shops ps
+    join public.profiles pr on pr.id = ps.profile_id
+    where ps.shop_id = shop_id
+      and pr.id = auth.uid()
+      and pr.role = 'boss'
+  )
+);
+
+drop policy if exists "manual shifts insert shop bosses" on public.manual_shift_assignments;
+create policy "manual shifts insert shop bosses"
+on public.manual_shift_assignments
+for insert
+to authenticated
+with check (
+  exists (
+    select 1
+    from public.profile_shops ps
+    join public.profiles pr on pr.id = ps.profile_id
+    where ps.shop_id = shop_id
+      and pr.id = auth.uid()
+      and pr.role = 'boss'
+  )
+);
+
+drop policy if exists "manual shifts delete shop bosses" on public.manual_shift_assignments;
+create policy "manual shifts delete shop bosses"
+on public.manual_shift_assignments
+for delete
+to authenticated
+using (
+  exists (
+    select 1
+    from public.profile_shops ps
+    join public.profiles pr on pr.id = ps.profile_id
+    where ps.shop_id = shop_id
+      and pr.id = auth.uid()
+      and pr.role = 'boss'
+  )
+);

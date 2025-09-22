@@ -10,6 +10,7 @@ import 'requirements_page.dart';
 import 'riders_overview_page.dart';
 import 'boss_employees_page.dart';
 import 'boss_overview_page.dart';
+import 'manual_shift_results_page.dart';
 import 'shift_generation_page.dart';
 import 'shift_online_generation_page.dart';
 
@@ -248,6 +249,22 @@ class _BossPageState extends State<BossPage> {
               context,
               MaterialPageRoute(
                 builder: (_) => const ShiftOnlineGenerationPage(),
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: 12),
+        OutlinedButton.icon(
+          icon: const Icon(Icons.calendar_month_outlined),
+          label: const Text('Turni manuali salvati'),
+          style: OutlinedButton.styleFrom(
+            textStyle: const TextStyle(fontSize: 16),
+          ),
+          onPressed: () async {
+            await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const ManualShiftResultsPage(),
               ),
             );
           },

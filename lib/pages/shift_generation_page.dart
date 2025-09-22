@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../data/repositories/manual_shift_repository.dart';
 import '../data/repositories/shop_repository.dart';
 import '../models/supabase/profile.dart';
+import 'manual_shift_results_page.dart';
 
 class ShiftGenerationPage extends StatefulWidget {
   const ShiftGenerationPage({super.key});
@@ -30,6 +32,10 @@ class _ShiftGenerationPageState extends State<ShiftGenerationPage> {
   List<PendingEmployee> _pendingManual = const [];
   bool _loadingColleagues = false;
   String? _colleaguesError;
+  String? _shopId;
+  String? _shopName;
+  bool _saving = false;
+  String? _saveError;
   final Map<String, Set<String>> _dailySelections = {};
 
   @override
@@ -56,6 +62,8 @@ class _ShiftGenerationPageState extends State<ShiftGenerationPage> {
       setState(() {
         _colleagues = filtered;
         _pendingManual = pendingManual;
+        _shopId = result.shopId;
+        _shopName = result.shopName;
         _loadingColleagues = false;
       });
     } catch (e) {
@@ -125,6 +133,60 @@ class _ShiftGenerationPageState extends State<ShiftGenerationPage> {
 
   String _dayKey(DateTime day) => _keyFmt.format(day);
 
+  Future<void> _generateShifts() async {
+    if (_days.isEmpty) {
+      setState(() {
+        _saveError = 'Configura un periodo prima di generare i turni.';
+      });
+      return;
+    }
+
+    final shopId = _shopId;
+    if (shopId == null) {
+      setState(() {
+        _saveError =
+            'Per generare i turni devi essere associato ad almeno uno shop.';
+      });
+      return;
+    }
+
+    final selections = <DateTime, Set<String>>{};
+    for (final day in _days) {
+      final employees = _dailySelections[_dayKey(day)];
+      if (employees == null || employees.isEmpty) continue;
+      selections[DateTime(day.year, day.month, day.day)] = Set.of(employees);
+    }
+
+    setState(() {
+      _saving = true;
+      _saveError = null;
+    });
+
+    try {
+      await ManualShiftRepository.instance.replaceAssignments(
+        shopId: shopId,
+        selections: selections,
+      );
+      if (!mounted) return;
+      setState(() {
+        _saving = false;
+      });
+      if (!mounted) return;
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => const ManualShiftResultsPage(),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _saving = false;
+        _saveError = 'Errore nel salvataggio: $e';
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -153,10 +215,36 @@ class _ShiftGenerationPageState extends State<ShiftGenerationPage> {
     final currentDay = _days[_currentDayIndex];
     final weeksLabel = _weeks == 1 ? '1 settimana' : '$_weeks settimane';
     final currentWeek = _currentDayIndex ~/ 7;
+    final theme = Theme.of(context);
+    final hasShop = _shopId != null;
+    final storeLabel = _shopName ?? 'Shop senza nome';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (_saving) const LinearProgressIndicator(),
+        if (_saving) const SizedBox(height: 12),
+        if (hasShop)
+          Row(
+            children: [
+              Icon(Icons.store_outlined, color: theme.colorScheme.primary),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  storeLabel,
+                  style: theme.textTheme.titleMedium,
+                ),
+              ),
+            ],
+          )
+        else
+          Text(
+            'Nessuno shop associato: non è possibile salvare i turni.',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.error,
+            ),
+          ),
+        const SizedBox(height: 12),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -166,12 +254,12 @@ class _ShiftGenerationPageState extends State<ShiftGenerationPage> {
                 children: [
                   Text(
                     'Periodo: ${_weekFmt.format(_startDate)} – ${_weekFmt.format(periodEnd)}',
-                    style: Theme.of(context).textTheme.titleMedium,
+                    style: theme.textTheme.titleMedium,
                   ),
                   const SizedBox(height: 4),
                   Text(
                     '$weeksLabel · Settimana attuale: ${currentWeek + 1}',
-                    style: Theme.of(context).textTheme.bodySmall,
+                    style: theme.textTheme.bodySmall,
                   ),
                 ],
               ),
@@ -188,6 +276,7 @@ class _ShiftGenerationPageState extends State<ShiftGenerationPage> {
           days: _days,
           currentIndex: _currentDayIndex,
           onDaySelected: _setDayIndex,
+          enabled: !_saving,
         ),
         const SizedBox(height: 16),
         Card(
@@ -219,17 +308,39 @@ class _ShiftGenerationPageState extends State<ShiftGenerationPage> {
             OutlinedButton.icon(
               icon: const Icon(Icons.arrow_back_ios_new),
               label: const Text('Indietro'),
-              onPressed: _currentDayIndex > 0 ? _goToPreviousDay : null,
+              onPressed:
+                  !_saving && _currentDayIndex > 0 ? _goToPreviousDay : null,
             ),
             FilledButton.icon(
               icon: const Icon(Icons.arrow_forward_ios),
               label: const Text('Avanti'),
-              onPressed: _currentDayIndex < _days.length - 1
+              onPressed: !_saving && _currentDayIndex < _days.length - 1
                   ? _goToNextDay
                   : null,
             ),
           ],
         ),
+        const SizedBox(height: 12),
+        Align(
+          alignment: Alignment.centerRight,
+          child: FilledButton.icon(
+            icon: const Icon(Icons.task_alt_outlined),
+            label: const Text('Genera turni'),
+            onPressed: _saving || _shopId == null
+                ? null
+                : () {
+                    _generateShifts();
+                  },
+          ),
+        ),
+        if (_saveError != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              _saveError!,
+              style: TextStyle(color: theme.colorScheme.error),
+            ),
+          ),
       ],
     );
   }
@@ -345,7 +456,9 @@ class _ShiftGenerationPageState extends State<ShiftGenerationPage> {
               value: checked,
               title: Text(label),
               subtitle: Text(profile.email),
-              onChanged: (_) => _toggleEmployeeForDay(key, profile.id),
+              onChanged: _saving
+                  ? null
+                  : (_) => _toggleEmployeeForDay(key, profile.id),
             );
           }),
         const SizedBox(height: 16),
@@ -366,7 +479,9 @@ class _ShiftGenerationPageState extends State<ShiftGenerationPage> {
               value: checked,
               title: Text(employee.name),
               subtitle: const Text('Da registrare'),
-              onChanged: (_) => _toggleEmployeeForDay(key, employee.id),
+              onChanged: _saving
+                  ? null
+                  : (_) => _toggleEmployeeForDay(key, employee.id),
             );
           }),
       ],
@@ -374,6 +489,7 @@ class _ShiftGenerationPageState extends State<ShiftGenerationPage> {
   }
 
   void _toggleEmployeeForDay(String key, String employeeId) {
+    if (_saving) return;
     setState(() {
       final set = _dailySelections.putIfAbsent(key, () => <String>{});
       if (!set.add(employeeId)) {
@@ -396,11 +512,13 @@ class _DayNavigator extends StatelessWidget {
     required this.days,
     required this.currentIndex,
     required this.onDaySelected,
+    this.enabled = true,
   });
 
   final List<DateTime> days;
   final int currentIndex;
   final ValueChanged<int> onDaySelected;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
@@ -453,7 +571,8 @@ class _DayNavigator extends StatelessWidget {
                   ],
                 ),
                 selected: selected,
-                onSelected: (_) => onDaySelected(globalIndex),
+                onSelected:
+                    enabled ? (_) => onDaySelected(globalIndex) : null,
                 selectedColor: baseColor.withAlpha(
                   (baseColor.a * 255 * 0.2).round(),
                 ),
