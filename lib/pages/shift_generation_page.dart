@@ -16,7 +16,6 @@ class ShiftGenerationPage extends StatefulWidget {
 }
 
 class _ShiftGenerationPageState extends State<ShiftGenerationPage> {
-  static final DateFormat _weekFmt = DateFormat('dd MMM', 'it_IT');
   static final DateFormat _dayFmt = DateFormat('EEEE dd MMM', 'it_IT');
   static final DateFormat _keyFmt = DateFormat('yyyy-MM-dd');
   static final DateFormat _weekdayFmt = DateFormat('EEEE', 'it_IT');
@@ -137,8 +136,9 @@ class _ShiftGenerationPageState extends State<ShiftGenerationPage> {
       _requirementsError = null;
     });
     try {
-      final values =
-          await WeeklyRequirementsRepository.instance.fetchForShop(shopId);
+      final values = await WeeklyRequirementsRepository.instance.fetchForShop(
+        shopId,
+      );
       if (!mounted) return;
       setState(() {
         _requirementsLoading = false;
@@ -190,7 +190,9 @@ class _ShiftGenerationPageState extends State<ShiftGenerationPage> {
 
   void _showSnack(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _openRequirementEditor() async {
@@ -269,8 +271,7 @@ class _ShiftGenerationPageState extends State<ShiftGenerationPage> {
                                           });
                                         }
                                       : null,
-                                  icon:
-                                      const Icon(Icons.remove_circle_outline),
+                                  icon: const Icon(Icons.remove_circle_outline),
                                 ),
                                 SizedBox(
                                   width: 36,
@@ -433,12 +434,16 @@ class _ShiftGenerationPageState extends State<ShiftGenerationPage> {
         _saving = false;
       });
       if (!mounted) return;
-      await Navigator.push(
+      final result = await Navigator.push<ManualShiftResultsExit>(
         context,
         MaterialPageRoute(
-          builder: (_) => const ManualShiftResultsPage(),
+          builder: (_) => const ManualShiftResultsPage(allowModify: true),
         ),
       );
+      if (!mounted) return;
+      if (result == ManualShiftResultsExit.goHome) {
+        Navigator.of(context).pop();
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -472,17 +477,13 @@ class _ShiftGenerationPageState extends State<ShiftGenerationPage> {
       );
     }
 
-    final periodEnd = _days.last;
     final currentDay = _days[_currentDayIndex];
-    final weeksLabel = _weeks == 1 ? '1 settimana' : '$_weeks settimane';
-    final currentWeek = _currentDayIndex ~/ 7;
     final theme = Theme.of(context);
     final hasShop = _shopId != null;
     final storeLabel = _shopName ?? 'Shop senza nome';
     final canEditRequirements =
         hasShop && !_requirementsLoading && !_requirementsSaving && !_saving;
-    final selectedCount =
-        _dailySelections[_dayKey(currentDay)]?.length ?? 0;
+    final selectedCount = _dailySelections[_dayKey(currentDay)]?.length ?? 0;
     final requirement = _requirementFor(currentDay);
     final defaultTextColor =
         theme.textTheme.bodyMedium?.color ?? theme.colorScheme.onSurface;
@@ -491,13 +492,13 @@ class _ShiftGenerationPageState extends State<ShiftGenerationPage> {
     final Color highlightColor = requirement == 0
         ? defaultTextColor
         : requirementMet
-            ? theme.colorScheme.primary
-            : theme.colorScheme.error;
+        ? theme.colorScheme.primary
+        : theme.colorScheme.error;
     final Color backgroundColor = requirement == 0
         ? theme.colorScheme.surfaceVariant.withOpacity(0.25)
         : requirementMet
-            ? theme.colorScheme.primary.withOpacity(0.1)
-            : theme.colorScheme.error.withOpacity(0.1);
+        ? theme.colorScheme.primary.withOpacity(0.1)
+        : theme.colorScheme.error.withOpacity(0.1);
     final int missing = requirement > selectedCount
         ? requirement - selectedCount
         : 0;
@@ -513,10 +514,7 @@ class _ShiftGenerationPageState extends State<ShiftGenerationPage> {
               Icon(Icons.store_outlined, color: theme.colorScheme.primary),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(
-                  storeLabel,
-                  style: theme.textTheme.titleMedium,
-                ),
+                child: Text(storeLabel, style: theme.textTheme.titleMedium),
               ),
             ],
           )
@@ -528,33 +526,15 @@ class _ShiftGenerationPageState extends State<ShiftGenerationPage> {
             ),
           ),
         const SizedBox(height: 12),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Periodo: ${_weekFmt.format(_startDate)} – ${_weekFmt.format(periodEnd)}',
-                    style: theme.textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '$weeksLabel · Settimana attuale: ${currentWeek + 1}',
-                    style: theme.textTheme.bodySmall,
-                  ),
-                ],
-              ),
-            ),
-            TextButton.icon(
-              onPressed: () => setState(() => _configured = false),
-              icon: const Icon(Icons.edit_outlined),
-              label: const Text('Modifica periodo'),
-            ),
-          ],
+        Align(
+          alignment: Alignment.centerRight,
+          child: TextButton.icon(
+            onPressed: () => setState(() => _configured = false),
+            icon: const Icon(Icons.edit_outlined),
+            label: const Text('Modifica periodo'),
+          ),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 8),
         Align(
           alignment: Alignment.centerRight,
           child: TextButton.icon(
@@ -579,20 +559,12 @@ class _ShiftGenerationPageState extends State<ShiftGenerationPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  _dayFmt.format(currentDay),
-                  style: theme.textTheme.titleLarge,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Seleziona i dipendenti che copriranno questo giorno. La logica definitiva sarà aggiunta in seguito.',
-                  style: theme.textTheme.bodyMedium,
-                ),
-                const SizedBox(height: 12),
                 Container(
                   width: double.infinity,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
                   decoration: BoxDecoration(
                     color: backgroundColor,
                     borderRadius: BorderRadius.circular(12),
@@ -602,10 +574,7 @@ class _ShiftGenerationPageState extends State<ShiftGenerationPage> {
                     children: [
                       Row(
                         children: [
-                          Icon(
-                            Icons.group_outlined,
-                            color: highlightColor,
-                          ),
+                          Icon(Icons.group_outlined, color: highlightColor),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
@@ -620,15 +589,19 @@ class _ShiftGenerationPageState extends State<ShiftGenerationPage> {
                           ),
                         ],
                       ),
-                      if (!requirementMet && requirement > 0) ...[
-                        const SizedBox(height: 4),
-                        Text(
+                      const SizedBox(height: 4),
+                      Visibility(
+                        visible: !requirementMet && requirement > 0,
+                        maintainSize: true,
+                        maintainAnimation: true,
+                        maintainState: true,
+                        child: Text(
                           'Ne mancano $missing.',
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: highlightColor,
                           ),
                         ),
-                      ],
+                      ),
                     ],
                   ),
                 ),
@@ -645,8 +618,9 @@ class _ShiftGenerationPageState extends State<ShiftGenerationPage> {
             OutlinedButton.icon(
               icon: const Icon(Icons.arrow_back_ios_new),
               label: const Text('Indietro'),
-              onPressed:
-                  !_saving && _currentDayIndex > 0 ? _goToPreviousDay : null,
+              onPressed: !_saving && _currentDayIndex > 0
+                  ? _goToPreviousDay
+                  : null,
             ),
             FilledButton.icon(
               icon: const Icon(Icons.arrow_forward_ios),
@@ -805,9 +779,7 @@ class _ShiftGenerationPageState extends State<ShiftGenerationPage> {
               children: List.generate(7, (index) {
                 final label = _weekdayLabelForIndex(index);
                 final value = _weeklyRequirements[index];
-                return Chip(
-                  label: Text('$label: $value rider'),
-                );
+                return Chip(label: Text('$label: $value rider'));
               }),
             ),
             if (_requirementsError != null) ...[
@@ -1001,8 +973,8 @@ class _DayNavigator extends StatelessWidget {
                 baseBackground = theme.colorScheme.primary;
                 baseBorder = theme.colorScheme.primary;
               } else if (satisfied) {
-                baseBackground = Colors.green.shade600;
-                baseBorder = Colors.green.shade600;
+                baseBackground = theme.colorScheme.primary;
+                baseBorder = theme.colorScheme.primary;
               } else {
                 baseBackground = theme.colorScheme.surfaceVariant;
                 baseBorder = theme.dividerColor;
@@ -1010,7 +982,7 @@ class _DayNavigator extends StatelessWidget {
               final Color resolvedTextColor = (selected || satisfied)
                   ? Colors.white
                   : (theme.textTheme.bodyMedium?.color ??
-                      theme.colorScheme.onSurface);
+                        theme.colorScheme.onSurface);
 
               return Tooltip(
                 message: DateFormat('EEEE dd MMMM', 'it_IT').format(day),
