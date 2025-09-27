@@ -3,8 +3,9 @@ import '../state/session_store.dart';
 import '../state/availability_store.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'availability_page.dart';
-import 'login_page.dart';
+import 'employee_manual_shift_results_page.dart';
 import 'latest_selection_results_page.dart';
+import 'login_page.dart';
 import 'my_availability_page.dart';
 import 'my_shifts_page.dart';
 import 'shop_colleagues_page.dart';
@@ -122,6 +123,25 @@ class EmployeeHomePage extends StatelessWidget {
                     context,
                     MaterialPageRoute(
                       builder: (_) => const MyShiftsPage(),
+                    ),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 12),
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.calendar_month_outlined),
+                title: const Text('Turni manuali salvati'),
+                subtitle: const Text(
+                  'Consulta l\'ultima pianificazione manuale del tuo shop',
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const EmployeeManualShiftResultsPage(),
                     ),
                   );
                 },

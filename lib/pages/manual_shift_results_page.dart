@@ -6,7 +6,14 @@ import '../data/repositories/shop_repository.dart';
 import '../models/supabase/profile.dart';
 
 class ManualShiftResultsPage extends StatefulWidget {
-  const ManualShiftResultsPage({super.key});
+  const ManualShiftResultsPage({
+    super.key,
+    this.title = 'Turni manuali generati',
+    this.headerSubtitle = 'Riepilogo turni manuali',
+  });
+
+  final String title;
+  final String headerSubtitle;
 
   @override
   State<ManualShiftResultsPage> createState() =>
@@ -198,7 +205,7 @@ class _ManualShiftResultsPageState extends State<ManualShiftResultsPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Turni manuali generati'),
+        title: Text(widget.title),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -230,7 +237,7 @@ class _ManualShiftResultsPageState extends State<ManualShiftResultsPage> {
         ),
         const SizedBox(height: 4),
         Text(
-          'Riepilogo turni manuali',
+          widget.headerSubtitle,
           style: theme.textTheme.bodyMedium,
         ),
       ],

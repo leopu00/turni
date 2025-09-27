@@ -70,6 +70,22 @@ using (
   )
 );
 
+drop policy if exists "pending employees select members" on public.shop_pending_employees;
+create policy "pending employees select members"
+on public.shop_pending_employees
+for select
+to authenticated
+using (
+  exists (
+    select 1
+    from public.profile_shops ps
+    join public.profiles pr on pr.id = ps.profile_id
+    where ps.shop_id = shop_id
+      and pr.id = auth.uid()
+      and pr.role = 'employee'
+  )
+);
+
 drop policy if exists "pending employees insert" on public.shop_pending_employees;
 create policy "pending employees insert"
 on public.shop_pending_employees
@@ -116,6 +132,22 @@ using (
     where ps.shop_id = shop_id
       and pr.id = auth.uid()
       and pr.role = 'boss'
+  )
+);
+
+drop policy if exists "manual shifts select shop members" on public.manual_shift_assignments;
+create policy "manual shifts select shop members"
+on public.manual_shift_assignments
+for select
+to authenticated
+using (
+  exists (
+    select 1
+    from public.profile_shops ps
+    join public.profiles pr on pr.id = ps.profile_id
+    where ps.shop_id = shop_id
+      and pr.id = auth.uid()
+      and pr.role = 'employee'
   )
 );
 
