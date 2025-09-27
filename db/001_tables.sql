@@ -123,3 +123,18 @@ create table if not exists public.manual_shift_assignments (
 );
 
 alter table public.manual_shift_assignments enable row level security;
+
+-- ========== SHOP WEEKLY REQUIREMENTS ==========
+create table if not exists public.shop_weekly_requirements (
+  shop_id uuid primary key references public.shops(id) on delete cascade,
+  monday smallint not null default 4 check (monday between 0 and 99),
+  tuesday smallint not null default 4 check (tuesday between 0 and 99),
+  wednesday smallint not null default 4 check (wednesday between 0 and 99),
+  thursday smallint not null default 5 check (thursday between 0 and 99),
+  friday smallint not null default 5 check (friday between 0 and 99),
+  saturday smallint not null default 6 check (saturday between 0 and 99),
+  sunday smallint not null default 6 check (sunday between 0 and 99),
+  updated_at timestamptz default now()
+);
+
+alter table public.shop_weekly_requirements enable row level security;

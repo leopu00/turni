@@ -150,3 +150,78 @@ using (
       and pr.role = 'boss'
   )
 );
+
+-- ========== POLICIES: SHOP WEEKLY REQUIREMENTS ==========
+drop policy if exists "weekly requirements select shop bosses" on public.shop_weekly_requirements;
+create policy "weekly requirements select shop bosses"
+on public.shop_weekly_requirements
+for select
+to authenticated
+using (
+  exists (
+    select 1
+    from public.profile_shops ps
+    join public.profiles pr on pr.id = ps.profile_id
+    where ps.shop_id = shop_id
+      and pr.id = auth.uid()
+      and pr.role = 'boss'
+  )
+);
+
+drop policy if exists "weekly requirements insert shop bosses" on public.shop_weekly_requirements;
+create policy "weekly requirements insert shop bosses"
+on public.shop_weekly_requirements
+for insert
+to authenticated
+with check (
+  exists (
+    select 1
+    from public.profile_shops ps
+    join public.profiles pr on pr.id = ps.profile_id
+    where ps.shop_id = shop_id
+      and pr.id = auth.uid()
+      and pr.role = 'boss'
+  )
+);
+
+drop policy if exists "weekly requirements update shop bosses" on public.shop_weekly_requirements;
+create policy "weekly requirements update shop bosses"
+on public.shop_weekly_requirements
+for update
+to authenticated
+using (
+  exists (
+    select 1
+    from public.profile_shops ps
+    join public.profiles pr on pr.id = ps.profile_id
+    where ps.shop_id = shop_id
+      and pr.id = auth.uid()
+      and pr.role = 'boss'
+  )
+)
+with check (
+  exists (
+    select 1
+    from public.profile_shops ps
+    join public.profiles pr on pr.id = ps.profile_id
+    where ps.shop_id = shop_id
+      and pr.id = auth.uid()
+      and pr.role = 'boss'
+  )
+);
+
+drop policy if exists "weekly requirements delete shop bosses" on public.shop_weekly_requirements;
+create policy "weekly requirements delete shop bosses"
+on public.shop_weekly_requirements
+for delete
+to authenticated
+using (
+  exists (
+    select 1
+    from public.profile_shops ps
+    join public.profiles pr on pr.id = ps.profile_id
+    where ps.shop_id = shop_id
+      and pr.id = auth.uid()
+      and pr.role = 'boss'
+  )
+);

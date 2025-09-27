@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../data/repositories/manual_shift_repository.dart';
 import '../data/repositories/shop_repository.dart';
+import '../data/repositories/weekly_requirements_repository.dart';
 import '../models/supabase/profile.dart';
 import 'manual_shift_results_page.dart';
 
@@ -18,11 +19,18 @@ class _ShiftGenerationPageState extends State<ShiftGenerationPage> {
   static final DateFormat _weekFmt = DateFormat('dd MMM', 'it_IT');
   static final DateFormat _dayFmt = DateFormat('EEEE dd MMM', 'it_IT');
   static final DateFormat _keyFmt = DateFormat('yyyy-MM-dd');
+  static final DateFormat _weekdayFmt = DateFormat('EEEE', 'it_IT');
+  static const List<int> _defaultWeeklyRequirements = [4, 4, 4, 5, 5, 6, 6];
 
   final List<int> _availableWeeks = [1, 2, 3, 4];
 
   late DateTime _startDate;
   List<DateTime> _days = const [];
+  late List<int> _weeklyRequirements;
+  final Map<String, int> _requirementsByDay = {};
+  bool _requirementsLoading = false;
+  bool _requirementsSaving = false;
+  String? _requirementsError;
 
   int _weeks = 2;
   int _currentDayIndex = 0;
@@ -42,6 +50,7 @@ class _ShiftGenerationPageState extends State<ShiftGenerationPage> {
   void initState() {
     super.initState();
     _startDate = _nextWeekMonday(DateTime.now());
+    _weeklyRequirements = List<int>.from(_defaultWeeklyRequirements);
     _loadColleagues();
   }
 
@@ -66,6 +75,16 @@ class _ShiftGenerationPageState extends State<ShiftGenerationPage> {
         _shopName = result.shopName;
         _loadingColleagues = false;
       });
+      if (!mounted) return;
+      final shopId = result.shopId;
+      if (shopId != null) {
+        await _loadWeeklyRequirements(shopId);
+      } else {
+        setState(() {
+          _requirementsError = null;
+          _requirementsByDay.clear();
+        });
+      }
     } catch (e) {
       setState(() {
         _colleaguesError = e.toString();
@@ -112,17 +131,229 @@ class _ShiftGenerationPageState extends State<ShiftGenerationPage> {
     }
   }
 
-  void _startPlanning() {
+  Future<void> _loadWeeklyRequirements(String shopId) async {
     setState(() {
-      _days = List.generate(
-        _weeks * 7,
-        (i) => _startDate.add(Duration(days: i)),
+      _requirementsLoading = true;
+      _requirementsError = null;
+    });
+    try {
+      final values =
+          await WeeklyRequirementsRepository.instance.fetchForShop(shopId);
+      if (!mounted) return;
+      setState(() {
+        _requirementsLoading = false;
+        if (values != null && values.length == 7) {
+          _weeklyRequirements = List<int>.from(values);
+        }
+        _applyRequirementsToDays();
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _requirementsLoading = false;
+        _requirementsError = 'Errore nel caricamento del fabbisogno: $e';
+      });
+    }
+  }
+
+  Future<void> _saveWeeklyRequirements({
+    required List<int> newValues,
+    required List<int> previousValues,
+  }) async {
+    final shopId = _shopId;
+    if (shopId == null) return;
+    setState(() {
+      _requirementsSaving = true;
+      _requirementsError = null;
+    });
+    try {
+      await WeeklyRequirementsRepository.instance.upsertForShop(
+        shopId: shopId,
+        requirements: newValues,
       );
+      if (!mounted) return;
+      setState(() {
+        _requirementsSaving = false;
+      });
+      _showSnack('Fabbisogno salvato');
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _requirementsSaving = false;
+        _weeklyRequirements = List<int>.from(previousValues);
+        _applyRequirementsToDays();
+        _requirementsError = 'Errore nel salvataggio del fabbisogno: $e';
+      });
+      _showSnack('Salvataggio del fabbisogno non riuscito');
+    }
+  }
+
+  void _showSnack(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _openRequirementEditor() async {
+    if (_requirementsLoading || _requirementsSaving) return;
+    final result = await showModalBottomSheet<List<int>>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (context) {
+        final edited = List<int>.from(_weeklyRequirements);
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final theme = Theme.of(context);
+            final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+
+            return FractionallySizedBox(
+              heightFactor: 0.9,
+              child: Padding(
+                padding: EdgeInsets.only(
+                  left: 16,
+                  right: 16,
+                  top: 16,
+                  bottom: 16 + bottomInset,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Imposta fabbisogno',
+                            style: theme.textTheme.titleLarge,
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            setModalState(() {
+                              for (var i = 0; i < edited.length; i++) {
+                                edited[i] = _defaultWeeklyRequirements[i];
+                              }
+                            });
+                          },
+                          child: const Text('Ripristina default'),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Definisci quanti rider servono in ciascun giorno della settimana. I valori si applicano a tutte le settimane del periodo.',
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: 16),
+                    Expanded(
+                      child: ListView.separated(
+                        itemCount: 7,
+                        separatorBuilder: (_, __) => const Divider(),
+                        itemBuilder: (context, index) {
+                          final label = _weekdayLabelForIndex(index);
+                          final value = edited[index];
+                          return ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: Text(
+                              label,
+                              style: theme.textTheme.titleMedium,
+                            ),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  tooltip: 'Diminuisci',
+                                  onPressed: value > 0
+                                      ? () {
+                                          setModalState(() {
+                                            edited[index] = value - 1;
+                                          });
+                                        }
+                                      : null,
+                                  icon:
+                                      const Icon(Icons.remove_circle_outline),
+                                ),
+                                SizedBox(
+                                  width: 36,
+                                  child: Text(
+                                    '$value',
+                                    textAlign: TextAlign.center,
+                                    style: theme.textTheme.titleMedium,
+                                  ),
+                                ),
+                                IconButton(
+                                  tooltip: 'Aumenta',
+                                  onPressed: () {
+                                    setModalState(() {
+                                      final next = value + 1;
+                                      edited[index] = next > 99 ? 99 : next;
+                                    });
+                                  },
+                                  icon: const Icon(Icons.add_circle_outline),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        TextButton(
+                          onPressed: () {
+                            Navigator.pop(context);
+                          },
+                          child: const Text('Annulla'),
+                        ),
+                        const Spacer(),
+                        FilledButton(
+                          onPressed: () {
+                            Navigator.pop(context, List<int>.from(edited));
+                          },
+                          child: const Text('Salva'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    if (result != null && mounted) {
+      if (result.length != 7) return;
+      final previous = List<int>.from(_weeklyRequirements);
+      setState(() {
+        _weeklyRequirements = List<int>.from(result);
+        _requirementsError = null;
+        _applyRequirementsToDays();
+      });
+      await _saveWeeklyRequirements(
+        newValues: List<int>.from(result),
+        previousValues: previous,
+      );
+    }
+  }
+
+  void _startPlanning() {
+    final generatedDays = List.generate(
+      _weeks * 7,
+      (i) => _startDate.add(Duration(days: i)),
+    );
+    final validKeys = generatedDays.map(_dayKey).toSet();
+
+    setState(() {
+      _days = generatedDays;
       _currentDayIndex = 0;
       _configured = true;
-      for (final day in _days) {
+      _dailySelections.removeWhere((key, _) => !validKeys.contains(key));
+      for (final day in generatedDays) {
         _ensureDayEntry(day);
       }
+      _applyRequirementsToDays();
     });
   }
 
@@ -132,6 +363,36 @@ class _ShiftGenerationPageState extends State<ShiftGenerationPage> {
   }
 
   String _dayKey(DateTime day) => _keyFmt.format(day);
+
+  int _weekdayIndex(int weekday) => (weekday - DateTime.monday) % 7;
+
+  String _weekdayLabelForIndex(int index) {
+    final base = DateTime(2024, 1, 1).add(Duration(days: index));
+    final raw = _weekdayFmt.format(base);
+    final label = toBeginningOfSentenceCase(raw);
+    return label ?? raw;
+  }
+
+  void _applyRequirementsToDays() {
+    if (_days.isEmpty) {
+      _requirementsByDay.clear();
+      return;
+    }
+    final updated = <String, int>{};
+    for (final day in _days) {
+      final key = _dayKey(day);
+      updated[key] = _weeklyRequirements[_weekdayIndex(day.weekday)];
+    }
+    _requirementsByDay
+      ..clear()
+      ..addAll(updated);
+  }
+
+  int _requirementFor(DateTime day) {
+    final key = _dayKey(day);
+    return _requirementsByDay[key] ??
+        _weeklyRequirements[_weekdayIndex(day.weekday)];
+  }
 
   Future<void> _generateShifts() async {
     if (_days.isEmpty) {
@@ -218,6 +479,28 @@ class _ShiftGenerationPageState extends State<ShiftGenerationPage> {
     final theme = Theme.of(context);
     final hasShop = _shopId != null;
     final storeLabel = _shopName ?? 'Shop senza nome';
+    final canEditRequirements =
+        hasShop && !_requirementsLoading && !_requirementsSaving && !_saving;
+    final selectedCount =
+        _dailySelections[_dayKey(currentDay)]?.length ?? 0;
+    final requirement = _requirementFor(currentDay);
+    final defaultTextColor =
+        theme.textTheme.bodyMedium?.color ?? theme.colorScheme.onSurface;
+    final bool requirementMet =
+        requirement == 0 || selectedCount >= requirement;
+    final Color highlightColor = requirement == 0
+        ? defaultTextColor
+        : requirementMet
+            ? theme.colorScheme.primary
+            : theme.colorScheme.error;
+    final Color backgroundColor = requirement == 0
+        ? theme.colorScheme.surfaceVariant.withOpacity(0.25)
+        : requirementMet
+            ? theme.colorScheme.primary.withOpacity(0.1)
+            : theme.colorScheme.error.withOpacity(0.1);
+    final int missing = requirement > selectedCount
+        ? requirement - selectedCount
+        : 0;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -271,12 +554,22 @@ class _ShiftGenerationPageState extends State<ShiftGenerationPage> {
             ),
           ],
         ),
+        const SizedBox(height: 4),
+        Align(
+          alignment: Alignment.centerRight,
+          child: TextButton.icon(
+            onPressed: canEditRequirements ? _openRequirementEditor : null,
+            icon: const Icon(Icons.tune),
+            label: const Text('Modifica fabbisogno'),
+          ),
+        ),
         const SizedBox(height: 16),
         _DayNavigator(
           days: _days,
           currentIndex: _currentDayIndex,
           onDaySelected: _setDayIndex,
           enabled: !_saving,
+          satisfiedIndexes: _satisfiedDayIndexes(),
         ),
         const SizedBox(height: 16),
         Card(
@@ -288,12 +581,56 @@ class _ShiftGenerationPageState extends State<ShiftGenerationPage> {
               children: [
                 Text(
                   _dayFmt.format(currentDay),
-                  style: Theme.of(context).textTheme.titleLarge,
+                  style: theme.textTheme.titleLarge,
                 ),
                 const SizedBox(height: 8),
                 Text(
                   'Seleziona i dipendenti che copriranno questo giorno. La logica definitiva sarà aggiunta in seguito.',
-                  style: Theme.of(context).textTheme.bodyMedium,
+                  style: theme.textTheme.bodyMedium,
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  width: double.infinity,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: backgroundColor,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.group_outlined,
+                            color: highlightColor,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              requirement == 0
+                                  ? 'Fabbisogno non impostato · Selezionati $selectedCount rider'
+                                  : 'Fabbisogno: $selectedCount / $requirement rider',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: highlightColor,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (!requirementMet && requirement > 0) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          'Ne mancano $missing.',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: highlightColor,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -345,6 +682,20 @@ class _ShiftGenerationPageState extends State<ShiftGenerationPage> {
     );
   }
 
+  Set<int> _satisfiedDayIndexes() {
+    final indexes = <int>{};
+    for (var i = 0; i < _days.length; i++) {
+      final day = _days[i];
+      final requirement = _requirementFor(day);
+      if (requirement <= 0) continue;
+      final selected = _dailySelections[_dayKey(day)]?.length ?? 0;
+      if (selected >= requirement) {
+        indexes.add(i);
+      }
+    }
+    return indexes;
+  }
+
   Widget _buildConfigurationForm(BuildContext context) {
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -389,6 +740,8 @@ class _ShiftGenerationPageState extends State<ShiftGenerationPage> {
           'Suggerimento: scegli un lunedì per allineare le settimane (default: prossimo lunedì).',
           style: Theme.of(context).textTheme.bodySmall,
         ),
+        const SizedBox(height: 16),
+        _buildRequirementSummaryCard(context),
         const SizedBox(height: 24),
         FilledButton.icon(
           icon: const Icon(Icons.play_arrow),
@@ -409,6 +762,89 @@ class _ShiftGenerationPageState extends State<ShiftGenerationPage> {
             ),
           ),
       ],
+    );
+  }
+
+  Widget _buildRequirementSummaryCard(BuildContext context) {
+    final theme = Theme.of(context);
+    final canEdit =
+        _shopId != null && !_requirementsLoading && !_requirementsSaving;
+    final showProgress = _requirementsLoading || _requirementsSaving;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.groups_outlined, color: theme.colorScheme.primary),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Fabbisogno settimanale',
+                    style: theme.textTheme.titleMedium,
+                  ),
+                ),
+              ],
+            ),
+            if (showProgress) ...[
+              const SizedBox(height: 8),
+              const LinearProgressIndicator(),
+            ],
+            const SizedBox(height: 8),
+            Text(
+              'Valori correnti replicati su ogni settimana del periodo selezionato.',
+              style: theme.textTheme.bodySmall,
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: List.generate(7, (index) {
+                final label = _weekdayLabelForIndex(index);
+                final value = _weeklyRequirements[index];
+                return Chip(
+                  label: Text('$label: $value rider'),
+                );
+              }),
+            ),
+            if (_requirementsError != null) ...[
+              const SizedBox(height: 12),
+              Text(
+                _requirementsError!,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.error,
+                ),
+              ),
+              if (_shopId != null)
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton.icon(
+                    onPressed: () {
+                      final shopId = _shopId;
+                      if (shopId != null) {
+                        _loadWeeklyRequirements(shopId);
+                      }
+                    },
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Riprova'),
+                  ),
+                ),
+            ],
+            const SizedBox(height: 12),
+            Align(
+              alignment: Alignment.centerRight,
+              child: FilledButton.tonalIcon(
+                onPressed: canEdit ? _openRequirementEditor : null,
+                icon: const Icon(Icons.tune),
+                label: const Text('Imposta fabbisogno'),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -513,12 +949,14 @@ class _DayNavigator extends StatelessWidget {
     required this.currentIndex,
     required this.onDaySelected,
     this.enabled = true,
+    this.satisfiedIndexes = const <int>{},
   });
 
   final List<DateTime> days;
   final int currentIndex;
   final ValueChanged<int> onDaySelected;
   final bool enabled;
+  final Set<int> satisfiedIndexes;
 
   @override
   Widget build(BuildContext context) {
@@ -555,26 +993,67 @@ class _DayNavigator extends StatelessWidget {
               final day = weekDays[index];
               final globalIndex = start + index;
               final selected = currentIndex == globalIndex;
-              final baseColor = theme.colorScheme.primary;
-              return ChoiceChip(
-                label: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      dayFormatter.format(day).toUpperCase(),
-                      style: const TextStyle(fontSize: 12),
+              final satisfied = satisfiedIndexes.contains(globalIndex);
+              final circleDiameter = 60.0;
+              final Color baseBackground;
+              final Color baseBorder;
+              if (selected) {
+                baseBackground = theme.colorScheme.primary;
+                baseBorder = theme.colorScheme.primary;
+              } else if (satisfied) {
+                baseBackground = Colors.green.shade600;
+                baseBorder = Colors.green.shade600;
+              } else {
+                baseBackground = theme.colorScheme.surfaceVariant;
+                baseBorder = theme.dividerColor;
+              }
+              final Color resolvedTextColor = (selected || satisfied)
+                  ? Colors.white
+                  : (theme.textTheme.bodyMedium?.color ??
+                      theme.colorScheme.onSurface);
+
+              return Tooltip(
+                message: DateFormat('EEEE dd MMMM', 'it_IT').format(day),
+                child: Material(
+                  color: baseBackground,
+                  shape: CircleBorder(
+                    side: BorderSide(
+                      color: baseBorder,
+                      width: selected ? 3 : 1,
                     ),
-                    Text(
-                      dateFormatter.format(day),
-                      style: const TextStyle(fontSize: 12),
+                  ),
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    onTap: enabled ? () => onDaySelected(globalIndex) : null,
+                    child: SizedBox(
+                      width: circleDiameter,
+                      height: circleDiameter,
+                      child: Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              dayFormatter.format(day).toUpperCase(),
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: resolvedTextColor,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              dateFormatter.format(day),
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: resolvedTextColor,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                  ],
-                ),
-                selected: selected,
-                onSelected:
-                    enabled ? (_) => onDaySelected(globalIndex) : null,
-                selectedColor: baseColor.withAlpha(
-                  (baseColor.a * 255 * 0.2).round(),
+                  ),
                 ),
               );
             }),
