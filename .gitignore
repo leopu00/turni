@@ -61,3 +61,9 @@ DerivedData/
 .ios/Flutter/GeneratedPluginRegistrant.*
 ios/Flutter/ephemeral/
 macos/Flutter/ephemeral/
+
+# supabase
+supabase/.temp/
+# Local environment
+.env.local
+.vercel

@@ -164,8 +164,9 @@ class _LoginPageState extends State<LoginPage> {
   Future<void> _signInWithGoogle() async {
     setState(() => _submitting = true);
     try {
-      // Su Web forziamo il redirect all'origin corrente (es. http://localhost:<porta>)
-      final redirectUrl = kIsWeb ? Uri.base.origin : null;
+      // Web usa l'origin corrente, mobile/desktop punta allo schema personalizzato
+      final redirectUrl =
+          kIsWeb ? Uri.base.origin : 'me.iturni.app://login-callback';
       await _client.auth.signInWithOAuth(
         OAuthProvider.google,
         redirectTo: redirectUrl,

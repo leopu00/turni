@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../remote/supabase_client.dart';
 import '../../models/supabase/profile.dart';
@@ -36,9 +37,11 @@ class AuthRepository {
   Future<void> signOut() => _sb.auth.signOut();
 
   Future<void> signInWithGoogle() async {
+    final redirect =
+        kIsWeb ? Uri.base.origin : 'me.iturni.app://login-callback';
     await _sb.auth.signInWithOAuth(
       OAuthProvider.google,
-      redirectTo: null, // opzionale per web deep link
+      redirectTo: redirect,
     );
   }
 
