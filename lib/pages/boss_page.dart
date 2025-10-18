@@ -9,7 +9,6 @@ import 'login_page.dart';
 import 'requirements_page.dart';
 import 'riders_overview_page.dart';
 import 'boss_employees_page.dart';
-import 'boss_overview_page.dart';
 import 'manual_shift_results_page.dart';
 import 'shift_generation_page.dart';
 import 'shift_online_generation_page.dart';
@@ -127,15 +126,6 @@ class _BossPageState extends State<BossPage> {
         title: const Text('Boss'),
         actions: [
           IconButton(
-            tooltip: 'Panoramica disponibilità',
-            onPressed: () async {
-              await _openOverview(context);
-              if (!mounted) return;
-              await _refreshFromRemote();
-            },
-            icon: const Icon(Icons.table_chart_outlined),
-          ),
-          IconButton(
             tooltip: 'Disponibilità per rider',
             onPressed: () async {
               await Navigator.push(
@@ -158,19 +148,6 @@ class _BossPageState extends State<BossPage> {
               setState(() {});
             },
             icon: const Icon(Icons.settings_suggest_outlined),
-          ),
-          IconButton(
-            tooltip: 'Pulisci tutto',
-            onPressed: _hasData
-                ? () {
-                    store.clearAll();
-                    setState(() {
-                      _data.clear();
-                      _periodStart = null;
-                    });
-                  }
-                : null,
-            icon: const Icon(Icons.delete_outline),
           ),
           IconButton(
             tooltip: 'Logout',
@@ -263,29 +240,11 @@ class _BossPageState extends State<BossPage> {
           onPressed: () async {
             await Navigator.push(
               context,
-              MaterialPageRoute(
-                builder: (_) => const ManualShiftResultsPage(),
-              ),
+              MaterialPageRoute(builder: (_) => const ManualShiftResultsPage()),
             );
           },
         ),
         const SizedBox(height: 24),
-        Card(
-          child: ListTile(
-            leading: const Icon(Icons.table_chart_outlined),
-            title: const Text('Panoramica disponibilità'),
-            subtitle: const Text(
-              'Apri la vista dettagliata di settimane e rider',
-            ),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () async {
-              await _openOverview(context);
-              if (!mounted) return;
-              await _refreshFromRemote();
-            },
-          ),
-        ),
-        const SizedBox(height: 16),
         Card(
           child: ListTile(
             leading: const Icon(Icons.group_outlined),
@@ -320,13 +279,6 @@ class _BossPageState extends State<BossPage> {
             ),
           ),
       ],
-    );
-  }
-
-  Future<void> _openOverview(BuildContext context) async {
-    await Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const BossOverviewPage()),
     );
   }
 }

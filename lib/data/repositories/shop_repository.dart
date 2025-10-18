@@ -132,4 +132,15 @@ class ShopRepository {
   Future<void> deletePendingEmployee(String id) async {
     await _db.from('shop_pending_employees').delete().eq('id', id);
   }
+
+  Future<void> removeEmployeeFromShop({
+    required String shopId,
+    required String profileId,
+  }) async {
+    await _db
+        .from('profile_shops')
+        .delete()
+        .eq('shop_id', shopId)
+        .eq('profile_id', profileId);
+  }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../data/repositories/shop_repository.dart';
 import '../models/supabase/profile.dart';
+import 'boss_manage_employees_page.dart';
 
 class BossEmployeesPage extends StatefulWidget {
   const BossEmployeesPage({super.key});
@@ -17,7 +18,6 @@ class _BossEmployeesPageState extends State<BossEmployeesPage> {
   String? _shopName;
   List<Profile> _registered = const [];
   List<PendingEmployee> _pending = const [];
-  final TextEditingController _nameController = TextEditingController();
 
   @override
   void initState() {
@@ -49,64 +49,11 @@ class _BossEmployeesPageState extends State<BossEmployeesPage> {
   }
 
   @override
-  void dispose() {
-    _nameController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _addPending() async {
-    final name = _nameController.text.trim();
-    if (name.isEmpty) return;
-    if (_shopId == null) {
-      _showSnack('Impossibile aggiungere: shop non trovato.');
-      return;
-    }
-
-    setState(() => _loading = true);
-    try {
-      final employee = await ShopRepository.instance.addPendingEmployee(
-        shopId: _shopId!,
-        name: name,
-      );
-      setState(() {
-        _pending = [
-          ..._pending,
-          employee,
-        ]..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
-        _nameController.clear();
-        _loading = false;
-      });
-    } catch (e) {
-      setState(() => _loading = false);
-      _showSnack('Errore durante l\'aggiunta: $e');
-    }
-  }
-
-  Future<void> _removePending(PendingEmployee employee) async {
-    setState(() => _loading = true);
-    try {
-      await ShopRepository.instance.deletePendingEmployee(employee.id);
-      setState(() {
-        _pending = _pending.where((e) => e.id != employee.id).toList();
-        _loading = false;
-      });
-    } catch (e) {
-      setState(() => _loading = false);
-      _showSnack('Errore durante la rimozione: $e');
-    }
-  }
-
-  void _showSnack(String message) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
-  }
-
-  @override
   Widget build(BuildContext context) {
     final title = _shopName == null
         ? 'Dipendenti dello shop'
         : '$_shopName — Dipendenti';
+    final employees = _employeeItems;
 
     return Scaffold(
       appBar: AppBar(title: Text(title)),
@@ -134,104 +81,41 @@ class _BossEmployeesPageState extends State<BossEmployeesPage> {
             : ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
-                  _SectionTitle(
-                    title: 'Dipendenti registrati',
-                    subtitle:
-                        'Questi utenti hanno effettuato l\'accesso e sono collegati allo shop.',
-                  ),
-                  if (_registered.isEmpty)
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Text(
-                          'Nessun dipendente ha ancora effettuato l\'accesso.',
-                          style: Theme.of(context).textTheme.bodyMedium,
-                        ),
-                      ),
-                    )
-                  else
-                    Card(
-                      child: ListView.separated(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: _registered.length,
-                        separatorBuilder: (context, index) =>
-                            const Divider(height: 1),
-                        itemBuilder: (context, index) {
-                          final profile = _registered[index];
-                          final display = _labelFor(profile);
-                          return ListTile(
-                            leading: const Icon(Icons.person_outline),
-                            title: Text(display),
-                            subtitle: Text(profile.email),
-                            trailing: profile.role == 'boss'
-                                ? const Chip(label: Text('Boss'))
-                                : null,
-                          );
-                        },
-                      ),
-                    ),
-                  const SizedBox(height: 24),
-                  _SectionTitle(
-                    title: 'Dipendenti da registrare',
-                    subtitle:
-                        'Aggiungi qui i nomi dei collaboratori che ancora non usano l\'app.',
-                  ),
                   Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: TextField(
-                                  controller: _nameController,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Nome dipendente',
-                                  ),
-                                  onSubmitted: (_) => _addPending(),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              FilledButton(
-                                onPressed: _addPending,
-                                child: const Text('Aggiungi'),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          if (_pending.isEmpty)
-                            Text(
-                              'Nessun dipendente da registrare ancora.',
+                    child: employees.isEmpty
+                        ? Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Text(
+                              _shopId == null
+                                  ? 'Collega questo account ad uno shop per iniziare a gestire i collaboratori.'
+                                  : 'Nessun collaboratore presente al momento.',
                               style: Theme.of(context).textTheme.bodyMedium,
-                            )
-                          else
-                            ListView.separated(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              itemCount: _pending.length,
-                              separatorBuilder: (context, index) =>
-                                  const Divider(height: 1),
-                              itemBuilder: (context, index) {
-                                final employee = _pending[index];
-                                return ListTile(
-                                  leading: const Icon(
-                                    Icons.person_add_alt_1_outlined,
-                                  ),
-                                  title: Text(employee.name),
-                                  trailing: IconButton(
-                                    icon: const Icon(Icons.delete_outline),
-                                    tooltip: 'Rimuovi',
-                                    onPressed: () => _removePending(employee),
-                                  ),
-                                );
-                              },
                             ),
-                        ],
-                      ),
-                    ),
+                          )
+                        : ListView.separated(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: employees.length,
+                            separatorBuilder: (context, _) =>
+                                const Divider(height: 1),
+                            itemBuilder: (context, index) =>
+                                _buildEmployeeTile(context, employees[index]),
+                          ),
+                  ),
+                  const SizedBox(height: 24),
+                  FilledButton.icon(
+                    icon: const Icon(Icons.manage_accounts_outlined),
+                    label: const Text('Gestisci collaboratori'),
+                    onPressed: () async {
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const BossManageEmployeesPage(),
+                        ),
+                      );
+                      if (!mounted) return;
+                      await _fetchEmployees();
+                    },
                   ),
                 ],
               ),
@@ -246,24 +130,66 @@ class _BossEmployeesPageState extends State<BossEmployeesPage> {
     if (username != null && username.isNotEmpty) return username;
     return profile.email;
   }
-}
 
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle({required this.title, required this.subtitle});
+  List<_EmployeeListItem> get _employeeItems {
+    final items = <_EmployeeListItem>[
+      for (final profile in _registered)
+        _EmployeeListItem(
+          id: profile.id,
+          name: _labelFor(profile),
+          isRegistered: true,
+          isBoss: profile.role == 'boss',
+          pending: null,
+        ),
+      for (final pending in _pending)
+        _EmployeeListItem(
+          id: pending.id,
+          name: pending.name,
+          isRegistered: false,
+          isBoss: false,
+          pending: pending,
+        ),
+    ];
+    items.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    return items;
+  }
 
-  final String title;
-  final String subtitle;
+  Widget _buildEmployeeTile(BuildContext context, _EmployeeListItem item) {
+    final subtitle = item.isRegistered
+        ? 'Registrato tramite app iTurni'
+        : 'Da registrare';
+    Widget? trailing;
+    if (item.isRegistered && item.isBoss) {
+      trailing = const Chip(label: Text('Boss'));
+    } else if (!item.isRegistered) {
+      trailing = const Chip(label: Text('Da registrare'));
+    }
 
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(title, style: Theme.of(context).textTheme.titleLarge),
-        const SizedBox(height: 4),
-        Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
-        const SizedBox(height: 12),
-      ],
+    return ListTile(
+      leading: Icon(
+        item.isRegistered
+            ? Icons.person_outline
+            : Icons.person_add_alt_1_outlined,
+      ),
+      title: Text(item.name),
+      subtitle: Text(subtitle),
+      trailing: trailing,
     );
   }
+}
+
+class _EmployeeListItem {
+  const _EmployeeListItem({
+    required this.id,
+    required this.name,
+    required this.isRegistered,
+    required this.isBoss,
+    this.pending,
+  });
+
+  final String id;
+  final String name;
+  final bool isRegistered;
+  final bool isBoss;
+  final PendingEmployee? pending;
 }

@@ -165,8 +165,9 @@ class _LoginPageState extends State<LoginPage> {
     setState(() => _submitting = true);
     try {
       // Web usa l'origin corrente, mobile/desktop punta allo schema personalizzato
-      final redirectUrl =
-          kIsWeb ? Uri.base.origin : 'me.iturni.app://login-callback';
+      final redirectUrl = kIsWeb
+          ? '${Uri.base.origin}/auth/v1/callback'
+          : 'me.iturni.app://login-callback';
       await _client.auth.signInWithOAuth(
         OAuthProvider.google,
         redirectTo: redirectUrl,
