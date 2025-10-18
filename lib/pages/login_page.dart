@@ -335,28 +335,71 @@ class _LoginPageState extends State<LoginPage> {
                             ),
                           ),
                           const SizedBox(height: 8),
-                          Row(
-                            children: [
-                              TextButton(
-                                onPressed: _submitting
-                                    ? null
-                                    : () => Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (_) => const SignUpPage(),
+                          LayoutBuilder(
+                            builder: (context, constraints) {
+                              final isNarrow = constraints.maxWidth < 360;
+                              if (isNarrow) {
+                                return Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    SizedBox(
+                                      width: double.infinity,
+                                      child: FilledButton.icon(
+                                        onPressed: _submitting
+                                            ? null
+                                            : _signInWithGoogle,
+                                        icon: const Icon(Icons.g_mobiledata),
+                                        label: const Text(
+                                          'Continue with Google',
                                         ),
                                       ),
-                                child: const Text('Create account'),
-                              ),
-                              const Spacer(),
-                              FilledButton.icon(
-                                onPressed: _submitting
-                                    ? null
-                                    : _signInWithGoogle,
-                                icon: const Icon(Icons.g_mobiledata),
-                                label: const Text('Continue with Google'),
-                              ),
-                            ],
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Align(
+                                      alignment: Alignment.center,
+                                      child: TextButton(
+                                        onPressed: _submitting
+                                            ? null
+                                            : () => Navigator.push(
+                                                context,
+                                                MaterialPageRoute(
+                                                  builder: (_) =>
+                                                      const SignUpPage(),
+                                                ),
+                                              ),
+                                        child: const Text('Create account'),
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              }
+
+                              return Row(
+                                children: [
+                                  TextButton(
+                                    onPressed: _submitting
+                                        ? null
+                                        : () => Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (_) =>
+                                                  const SignUpPage(),
+                                            ),
+                                          ),
+                                    child: const Text('Create account'),
+                                  ),
+                                  const Spacer(),
+                                  FilledButton.icon(
+                                    onPressed: _submitting
+                                        ? null
+                                        : _signInWithGoogle,
+                                    icon: const Icon(Icons.g_mobiledata),
+                                    label: const Text('Continue with Google'),
+                                  ),
+                                ],
+                              );
+                            },
                           ),
                         ],
                       ),
