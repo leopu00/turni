@@ -326,10 +326,22 @@ class _ShiftGenerationPageState extends State<ShiftGenerationPage> {
   }
 
   void _startPlanning() {
-    final generatedDays = List.generate(
-      _weeks * 7,
-      (i) => _startDate.add(Duration(days: i)),
+    final weeks = _weeks <= 0 ? 1 : _weeks;
+    final totalDays = weeks * 7;
+    final startLocal = DateTime(
+      _startDate.year,
+      _startDate.month,
+      _startDate.day,
     );
+    final startUtc = DateTime.utc(
+      startLocal.year,
+      startLocal.month,
+      startLocal.day,
+    );
+    final generatedDays = List.generate(totalDays, (i) {
+      final utcDay = startUtc.add(Duration(days: i));
+      return DateTime(utcDay.year, utcDay.month, utcDay.day);
+    });
     final validKeys = generatedDays.map(_dayKey).toSet();
 
     setState(() {
@@ -769,6 +781,11 @@ class _ShiftGenerationPageState extends State<ShiftGenerationPage> {
                   icon: Icons.event_outlined,
                   label: 'Data di inizio',
                   value: _dayFmt.format(startLocal),
+                ),
+                _SummaryRow(
+                  icon: Icons.flag_outlined,
+                  label: 'Data di fine',
+                  value: _dayFmt.format(endLocal),
                 ),
                 _SummaryRow(
                   icon: Icons.schedule_outlined,
