@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../widgets/brand_assets.dart';
+
 class SignUpPage extends StatefulWidget {
   const SignUpPage({super.key});
 
@@ -75,7 +77,7 @@ class _SignUpPageState extends State<SignUpPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Create account')),
+      appBar: AppBar(title: const BrandAppBarTitle(text: 'iTurni')),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Center(
@@ -89,6 +91,13 @@ class _SignUpPageState extends State<SignUpPage> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      const BrandLogo(width: 150),
+                      const SizedBox(height: 12),
+                      Text(
+                        'Crea un account iTurni',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 16),
                       TextFormField(
                         controller: _emailCtrl,
                         decoration: const InputDecoration(

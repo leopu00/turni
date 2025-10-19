@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../data/repositories/availability_repository.dart';
 import '../models/supabase/profile.dart';
 import '../state/availability_store.dart';
+import '../widgets/brand_assets.dart';
 
 class BossOverviewPage extends StatefulWidget {
   const BossOverviewPage({super.key});
@@ -127,7 +128,7 @@ class _BossOverviewPageState extends State<BossOverviewPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Panoramica disponibilità'),
+        title: const BrandAppBarTitle(text: 'Panoramica disponibilità'),
         actions: [
           IconButton(
             tooltip: 'Aggiorna',

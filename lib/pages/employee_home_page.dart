@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../state/session_store.dart';
 import '../state/availability_store.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../widgets/brand_assets.dart';
 import 'availability_page.dart';
 import 'employee_manual_shift_results_page.dart';
 import 'latest_selection_results_page.dart';
@@ -23,7 +25,7 @@ class EmployeeHomePage extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Ciao, $displayName'),
+        title: BrandAppBarTitle(text: 'Ciao, $displayName'),
         actions: [
           IconButton(
             tooltip: 'Logout',

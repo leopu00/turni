@@ -5,8 +5,6 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'state/session_store.dart';
 import 'pages/login_page.dart';
 import 'data/remote/supabase_client.dart';
-  
-import 'pages/availability_page.dart';
 import 'pages/boss_page.dart';
 import 'pages/employee_home_page.dart';
 
@@ -27,7 +25,7 @@ class TurniApp extends StatelessWidget {
       animation: session,
       builder: (context, _) {
         return MaterialApp(
-          title: 'Turni',
+          title: 'iTurni',
           debugShowCheckedModeBanner: false,
           theme: ThemeData(
             useMaterial3: true,

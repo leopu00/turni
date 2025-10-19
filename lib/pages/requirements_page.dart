@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+
 import '../state/availability_store.dart';
+import '../widgets/brand_assets.dart';
 
 class RequirementsPage extends StatefulWidget {
   const RequirementsPage({super.key});
@@ -17,7 +19,7 @@ class _RequirementsPageState extends State<RequirementsPage> {
     final start = store.startMonday;
     if (start == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Fabbisogno')),
+        appBar: AppBar(title: const BrandAppBarTitle(text: 'Fabbisogno')),
         body: const Center(
           child: Text('Nessun periodo attivo. Chiedi ai rider di inviare disponibilità.'),
         ),
@@ -69,7 +71,9 @@ class _RequirementsPageState extends State<RequirementsPage> {
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Fabbisogno (2 settimane)')),
+      appBar: AppBar(
+        title: const BrandAppBarTitle(text: 'Fabbisogno (2 settimane)'),
+      ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [

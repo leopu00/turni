@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../state/availability_store.dart';
+
 import '../data/repositories/availability_repository.dart';
+import '../state/availability_store.dart';
+import '../widgets/brand_assets.dart';
 
 class AvailabilityPage extends StatefulWidget {
   final String employee; // identifier (es. email)
@@ -206,12 +208,14 @@ class _AvailabilityPageState extends State<AvailabilityPage> {
       );
     }
 
+    final displayLabel = (widget.displayName?.trim().isNotEmpty ?? false)
+        ? widget.displayName!.trim()
+        : widget.employee;
+    final titleText = 'Disponibilità — $displayLabel';
+
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          'Disponibilità — '
-          '${(widget.displayName?.trim().isNotEmpty ?? false) ? widget.displayName!.trim() : widget.employee}',
-        ),
+        title: BrandAppBarTitle(text: titleText),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),

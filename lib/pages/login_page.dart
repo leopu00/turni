@@ -1,12 +1,13 @@
-import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:async';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 import '../data/repositories/availability_repository.dart';
 import '../state/availability_store.dart';
 import '../state/session_store.dart';
+import '../widgets/brand_assets.dart';
 import 'boss_page.dart';
-
 import 'employee_home_page.dart';
 import 'sign_up_page.dart';
 
@@ -280,7 +281,7 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Turni')),
+      appBar: AppBar(title: const BrandAppBarTitle(text: 'iTurni')),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Center(
@@ -289,9 +290,11 @@ class _LoginPageState extends State<LoginPage> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Text(
-                  'Sign in',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                const BrandLogo(width: 180),
+                const SizedBox(height: 12),
+                Text(
+                  'Accedi al tuo account iTurni',
+                  style: Theme.of(context).textTheme.titleMedium,
                 ),
                 const SizedBox(height: 16),
                 Card(

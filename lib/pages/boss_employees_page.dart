@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../data/repositories/shop_repository.dart';
 import '../models/supabase/profile.dart';
+import '../widgets/brand_assets.dart';
 import 'boss_manage_employees_page.dart';
 
 class BossEmployeesPage extends StatefulWidget {
@@ -56,7 +57,7 @@ class _BossEmployeesPageState extends State<BossEmployeesPage> {
     final employees = _employeeItems;
 
     return Scaffold(
-      appBar: AppBar(title: Text(title)),
+      appBar: AppBar(title: BrandAppBarTitle(text: title)),
       body: RefreshIndicator(
         onRefresh: _fetchEmployees,
         child: _loading

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../widgets/brand_assets.dart';
+
 class ShiftGenerationConfigResult {
   const ShiftGenerationConfigResult({
     required this.weeks,
@@ -112,7 +114,7 @@ class _ShiftGenerationConfigPageState extends State<ShiftGenerationConfigPage> {
     final bottomSafe = MediaQuery.of(context).viewPadding.bottom;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Configura periodo')),
+      appBar: AppBar(title: const BrandAppBarTitle(text: 'Configura periodo')),
       body: ListView(
         padding: EdgeInsets.fromLTRB(
           16,
