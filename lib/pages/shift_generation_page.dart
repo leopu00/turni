@@ -41,7 +41,6 @@ class _ShiftGenerationPageState extends State<ShiftGenerationPage> {
   bool _loadingColleagues = false;
   String? _colleaguesError;
   String? _shopId;
-  String? _shopName;
   bool _saving = false;
   String? _saveError;
   final Map<String, Set<String>> _dailySelections = {};
@@ -72,7 +71,6 @@ class _ShiftGenerationPageState extends State<ShiftGenerationPage> {
         _colleagues = filtered;
         _pendingManual = pendingManual;
         _shopId = result.shopId;
-        _shopName = result.shopName;
         _loadingColleagues = false;
       });
       if (!mounted) return;
@@ -179,150 +177,6 @@ class _ShiftGenerationPageState extends State<ShiftGenerationPage> {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
-  }
-
-  Future<void> _openRequirementEditor() async {
-    if (_requirementsLoading || _requirementsSaving) return;
-    final result = await showModalBottomSheet<List<int>>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      builder: (context) {
-        final edited = List<int>.from(_weeklyRequirements);
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            final theme = Theme.of(context);
-            final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-
-            return FractionallySizedBox(
-              heightFactor: 0.9,
-              child: Padding(
-                padding: EdgeInsets.only(
-                  left: 16,
-                  right: 16,
-                  top: 16,
-                  bottom: 16 + bottomInset,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            'Imposta fabbisogno',
-                            style: theme.textTheme.titleLarge,
-                          ),
-                        ),
-                        TextButton(
-                          onPressed: () {
-                            setModalState(() {
-                              for (var i = 0; i < edited.length; i++) {
-                                edited[i] = _defaultWeeklyRequirements[i];
-                              }
-                            });
-                          },
-                          child: const Text('Ripristina default'),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Definisci quanti rider servono in ciascun giorno della settimana. I valori si applicano a tutte le settimane del periodo.',
-                      style: theme.textTheme.bodyMedium,
-                    ),
-                    const SizedBox(height: 16),
-                    Expanded(
-                      child: ListView.separated(
-                        itemCount: 7,
-                        separatorBuilder: (_, __) => const Divider(),
-                        itemBuilder: (context, index) {
-                          final label = _weekdayLabelForIndex(index);
-                          final value = edited[index];
-                          return ListTile(
-                            contentPadding: EdgeInsets.zero,
-                            title: Text(
-                              label,
-                              style: theme.textTheme.titleMedium,
-                            ),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
-                                  tooltip: 'Diminuisci',
-                                  onPressed: value > 0
-                                      ? () {
-                                          setModalState(() {
-                                            edited[index] = value - 1;
-                                          });
-                                        }
-                                      : null,
-                                  icon: const Icon(Icons.remove_circle_outline),
-                                ),
-                                SizedBox(
-                                  width: 36,
-                                  child: Text(
-                                    '$value',
-                                    textAlign: TextAlign.center,
-                                    style: theme.textTheme.titleMedium,
-                                  ),
-                                ),
-                                IconButton(
-                                  tooltip: 'Aumenta',
-                                  onPressed: () {
-                                    setModalState(() {
-                                      final next = value + 1;
-                                      edited[index] = next > 99 ? 99 : next;
-                                    });
-                                  },
-                                  icon: const Icon(Icons.add_circle_outline),
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        TextButton(
-                          onPressed: () {
-                            Navigator.pop(context);
-                          },
-                          child: const Text('Annulla'),
-                        ),
-                        const Spacer(),
-                        FilledButton(
-                          onPressed: () {
-                            Navigator.pop(context, List<int>.from(edited));
-                          },
-                          child: const Text('Salva'),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
-
-    if (result != null && mounted) {
-      if (result.length != 7) return;
-      final previous = List<int>.from(_weeklyRequirements);
-      setState(() {
-        _weeklyRequirements = List<int>.from(result);
-        _requirementsError = null;
-        _applyRequirementsToDays();
-      });
-      await _saveWeeklyRequirements(
-        newValues: List<int>.from(result),
-        previousValues: previous,
-      );
-    }
   }
 
   void _startPlanning() {
@@ -527,185 +381,200 @@ class _ShiftGenerationPageState extends State<ShiftGenerationPage> {
 
     final currentDay = _days[_currentDayIndex];
     final theme = Theme.of(context);
-    final hasShop = _shopId != null;
-    final storeLabel = _shopName ?? 'Shop senza nome';
-    final canEditRequirements =
-        hasShop && !_requirementsLoading && !_requirementsSaving && !_saving;
     final selectedCount = _dailySelections[_dayKey(currentDay)]?.length ?? 0;
     final requirement = _requirementFor(currentDay);
     final defaultTextColor =
         theme.textTheme.bodyMedium?.color ?? theme.colorScheme.onSurface;
     final bool requirementMet =
         requirement == 0 || selectedCount >= requirement;
-    final Color highlightColor = requirement == 0
-        ? defaultTextColor
-        : requirementMet
+    final Color highlightColor = requirementMet && requirement > 0
         ? theme.colorScheme.primary
-        : theme.colorScheme.error;
-    final Color backgroundColor = requirement == 0
-        ? theme.colorScheme.surfaceVariant.withOpacity(0.25)
-        : requirementMet
-        ? theme.colorScheme.primary.withOpacity(0.1)
-        : theme.colorScheme.error.withOpacity(0.1);
-    final int missing = requirement > selectedCount
-        ? requirement - selectedCount
-        : 0;
+        : defaultTextColor;
+
+    final weeks = _weeks <= 0 ? 1 : _weeks;
+    final totalDays = weeks * 7;
+    final periodStart = DateTime(
+      _startDate.year,
+      _startDate.month,
+      _startDate.day,
+    );
+    final periodEndUtc = DateTime.utc(
+      periodStart.year,
+      periodStart.month,
+      periodStart.day,
+    ).add(Duration(days: totalDays - 1));
+    final periodEnd = DateTime(
+      periodEndUtc.year,
+      periodEndUtc.month,
+      periodEndUtc.day,
+    );
+    final displayStart = _days.isNotEmpty ? _days.first : periodStart;
+    final displayEnd = _days.isNotEmpty ? _days.last : periodEnd;
+    final periodLabel =
+        'Periodo: ${DateFormat('dd MMM', 'it_IT').format(displayStart)} – '
+        '${DateFormat('dd MMM', 'it_IT').format(displayEnd)}';
 
     final bottomInset = MediaQuery.of(context).viewPadding.bottom;
 
-    return SingleChildScrollView(
-      padding: EdgeInsets.only(bottom: bottomInset > 0 ? bottomInset + 16 : 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (_saving) const LinearProgressIndicator(),
-          if (_saving) const SizedBox(height: 12),
-          if (hasShop)
-            Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Card(
+          margin: EdgeInsets.zero,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.store_outlined, color: theme.colorScheme.primary),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(storeLabel, style: theme.textTheme.titleMedium),
+                if (_saving || _requirementsLoading || _requirementsSaving) ...[
+                  const LinearProgressIndicator(),
+                  const SizedBox(height: 12),
+                ],
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        _days.isEmpty ? 'Periodo non configurato' : periodLabel,
+                        style: theme.textTheme.bodySmall,
+                      ),
+                    ),
+                    TextButton.icon(
+                      onPressed: _openConfiguration,
+                      icon: const Icon(Icons.edit_outlined),
+                      label: const Text('Modifica configurazione'),
+                    ),
+                  ],
                 ),
-              ],
-            )
-          else
-            Text(
-              'Nessuno shop associato: non è possibile salvare i turni.',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.error,
-              ),
-            ),
-          const SizedBox(height: 12),
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton.icon(
-              onPressed: _openConfiguration,
-              icon: const Icon(Icons.edit_outlined),
-              label: const Text('Modifica periodo'),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton.icon(
-              onPressed: canEditRequirements ? _openRequirementEditor : null,
-              icon: const Icon(Icons.tune),
-              label: const Text('Modifica fabbisogno'),
-            ),
-          ),
-          const SizedBox(height: 16),
-          _DayNavigator(
-            days: _days,
-            currentIndex: _currentDayIndex,
-            onDaySelected: _setDayIndex,
-            enabled: !_saving,
-            satisfiedIndexes: _satisfiedDayIndexes(),
-          ),
-          const SizedBox(height: 16),
-          Card(
-            margin: EdgeInsets.zero,
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10,
-                    ),
-                    decoration: BoxDecoration(
-                      color: backgroundColor,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
+                const SizedBox(height: 12),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: requirementMet
+                        ? theme.colorScheme.primaryContainer
+                        : theme.colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.group_outlined, color: highlightColor),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(Icons.group_outlined, color: highlightColor),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                requirement == 0
-                                    ? 'Fabbisogno non impostato · Selezionati $selectedCount rider'
-                                    : 'Fabbisogno: $selectedCount / $requirement rider',
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: highlightColor,
-                                  fontWeight: FontWeight.w600,
-                                ),
+                            Text(
+                              requirement == 0
+                                  ? 'Fabbisogno non impostato'
+                                  : 'Fabbisogno: $selectedCount / $requirement rider',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: highlightColor,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            Text(
+                              requirement > 0
+                                  ? (requirementMet
+                                        ? 'Fabbisogno soddisfatto.'
+                                        : 'Seleziona rider fino a raggiungere il fabbisogno.')
+                                  : 'Definisci il fabbisogno dalle impostazioni.',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: highlightColor,
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 4),
-                        Visibility(
-                          visible: !requirementMet && requirement > 0,
-                          maintainSize: true,
-                          maintainAnimation: true,
-                          maintainState: true,
-                          child: Text(
-                            'Ne mancano $missing.',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: highlightColor,
-                            ),
-                          ),
+                      ),
+                      AnimatedOpacity(
+                        duration: const Duration(milliseconds: 250),
+                        opacity: requirementMet && requirement > 0 ? 1 : 0.15,
+                        child: Icon(
+                          requirementMet && requirement > 0
+                              ? Icons.check_circle_outline
+                              : Icons.timelapse_outlined,
+                          color: highlightColor,
                         ),
-                      ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Expanded(
+          child: SingleChildScrollView(
+            padding: EdgeInsets.only(
+              bottom: bottomInset > 0 ? bottomInset + 16 : 16,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _DayNavigator(
+                  days: _days,
+                  currentIndex: _currentDayIndex,
+                  onDaySelected: _setDayIndex,
+                  enabled: !_saving,
+                  satisfiedIndexes: _satisfiedDayIndexes(),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Giorno selezionato: '
+                  '${DateFormat('EEEE dd MMM', 'it_IT').format(currentDay)}',
+                  style: theme.textTheme.bodySmall,
+                ),
+                const SizedBox(height: 16),
+                _buildEmployeeChecklist(currentDay),
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    OutlinedButton.icon(
+                      icon: const Icon(Icons.arrow_back_ios_new),
+                      label: const Text('Indietro'),
+                      onPressed: !_saving && _currentDayIndex > 0
+                          ? _goToPreviousDay
+                          : null,
+                    ),
+                    FilledButton.icon(
+                      icon: const Icon(Icons.arrow_forward_ios),
+                      label: const Text('Avanti'),
+                      onPressed: !_saving && _currentDayIndex < _days.length - 1
+                          ? _goToNextDay
+                          : null,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: FilledButton.icon(
+                    icon: const Icon(Icons.task_alt_outlined),
+                    label: const Text('Genera turni'),
+                    onPressed: _saving || _shopId == null
+                        ? null
+                        : () {
+                            _generateShifts();
+                          },
+                  ),
+                ),
+                if (_saveError != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      _saveError!,
+                      style: TextStyle(color: theme.colorScheme.error),
                     ),
                   ),
-                ],
-              ),
+              ],
             ),
           ),
-          const SizedBox(height: 12),
-          _buildEmployeeChecklist(currentDay),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              OutlinedButton.icon(
-                icon: const Icon(Icons.arrow_back_ios_new),
-                label: const Text('Indietro'),
-                onPressed: !_saving && _currentDayIndex > 0
-                    ? _goToPreviousDay
-                    : null,
-              ),
-              FilledButton.icon(
-                icon: const Icon(Icons.arrow_forward_ios),
-                label: const Text('Avanti'),
-                onPressed: !_saving && _currentDayIndex < _days.length - 1
-                    ? _goToNextDay
-                    : null,
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Align(
-            alignment: Alignment.centerRight,
-            child: FilledButton.icon(
-              icon: const Icon(Icons.task_alt_outlined),
-              label: const Text('Genera turni'),
-              onPressed: _saving || _shopId == null
-                  ? null
-                  : () {
-                      _generateShifts();
-                    },
-            ),
-          ),
-          if (_saveError != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text(
-                _saveError!,
-                style: TextStyle(color: theme.colorScheme.error),
-              ),
-            ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -1044,77 +913,38 @@ class _DayNavigator extends StatelessWidget {
         )
         ..add(const SizedBox(height: 6))
         ..add(
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: List.generate(weekDays.length, (index) {
-              final day = weekDays[index];
-              final globalIndex = start + index;
-              final selected = currentIndex == globalIndex;
-              final satisfied = satisfiedIndexes.contains(globalIndex);
-              final circleDiameter = 60.0;
-              final Color baseBackground;
-              final Color baseBorder;
-              if (selected) {
-                baseBackground = theme.colorScheme.primary;
-                baseBorder = theme.colorScheme.primary;
-              } else if (satisfied) {
-                baseBackground = theme.colorScheme.primary;
-                baseBorder = theme.colorScheme.primary;
-              } else {
-                baseBackground = theme.colorScheme.surfaceVariant;
-                baseBorder = theme.dividerColor;
-              }
-              final Color resolvedTextColor = (selected || satisfied)
-                  ? Colors.white
-                  : (theme.textTheme.bodyMedium?.color ??
-                        theme.colorScheme.onSurface);
+          LayoutBuilder(
+            builder: (context, constraints) {
+              const spacing = 6.0;
+              final count = weekDays.length;
+              final totalSpacing = spacing * (count - 1);
+              final itemSize = (constraints.maxWidth - totalSpacing) / count;
 
-              return Tooltip(
-                message: DateFormat('EEEE dd MMMM', 'it_IT').format(day),
-                child: Material(
-                  color: baseBackground,
-                  shape: CircleBorder(
-                    side: BorderSide(
-                      color: baseBorder,
-                      width: selected ? 3 : 1,
+              return Row(
+                children: List.generate(count, (index) {
+                  final day = weekDays[index];
+                  final globalIndex = start + index;
+                  final selected = currentIndex == globalIndex;
+                  final satisfied = satisfiedIndexes.contains(globalIndex);
+                  return Padding(
+                    padding: EdgeInsets.only(
+                      right: index == count - 1 ? 0 : spacing,
                     ),
-                  ),
-                  child: InkWell(
-                    customBorder: const CircleBorder(),
-                    onTap: enabled ? () => onDaySelected(globalIndex) : null,
-                    child: SizedBox(
-                      width: circleDiameter,
-                      height: circleDiameter,
-                      child: Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              dayFormatter.format(day).toUpperCase(),
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: resolvedTextColor,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              dateFormatter.format(day),
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: resolvedTextColor,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                    child: _buildDayCircle(
+                      context: context,
+                      dayFormatter: dayFormatter,
+                      dateFormatter: dateFormatter,
+                      day: day,
+                      diameter: itemSize,
+                      selected: selected,
+                      satisfied: satisfied,
+                      enabled: enabled,
+                      onTap: () => onDaySelected(globalIndex),
                     ),
-                  ),
-                ),
+                  );
+                }),
               );
-            }),
+            },
           ),
         )
         ..add(const SizedBox(height: 12));
@@ -1125,4 +955,130 @@ class _DayNavigator extends StatelessWidget {
       children: sections,
     );
   }
+}
+
+Widget _buildDayCircle({
+  required BuildContext context,
+  required DateFormat dayFormatter,
+  required DateFormat dateFormatter,
+  required DateTime day,
+  required double diameter,
+  required bool selected,
+  required bool satisfied,
+  required bool enabled,
+  required VoidCallback onTap,
+}) {
+  final theme = Theme.of(context);
+  final ColorScheme scheme = theme.colorScheme;
+
+  final BorderSide borderSide;
+  final Gradient? gradient;
+  final Color textColor;
+
+  if (selected) {
+    borderSide = BorderSide(color: scheme.primary, width: 2);
+    gradient = LinearGradient(
+      colors: [scheme.primary, scheme.primary.withOpacity(0.75)],
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+    );
+    textColor = scheme.onPrimary;
+  } else if (satisfied) {
+    borderSide = BorderSide(color: scheme.secondary, width: 1.4);
+    gradient = LinearGradient(
+      colors: [
+        scheme.secondaryContainer,
+        scheme.secondaryContainer.withOpacity(0.9),
+      ],
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+    );
+    textColor = scheme.onSecondaryContainer;
+  } else {
+    borderSide = BorderSide(color: scheme.outline.withOpacity(0.5), width: 1);
+    gradient = null;
+    textColor = theme.textTheme.bodyMedium?.color ?? scheme.onSurfaceVariant;
+  }
+
+  return Tooltip(
+    message: DateFormat('EEEE dd MMMM', 'it_IT').format(day),
+    child: Material(
+      color: Colors.transparent,
+      shape: CircleBorder(side: borderSide),
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: enabled ? onTap : null,
+        child: SizedBox(
+          width: diameter,
+          height: diameter,
+          child: DecoratedBox(
+            decoration: ShapeDecoration(
+              shape: const CircleBorder(),
+              gradient: gradient,
+              color: gradient == null ? scheme.surfaceVariant : null,
+              shadows: selected
+                  ? [
+                      BoxShadow(
+                        color: scheme.primary.withOpacity(0.35),
+                        blurRadius: 8,
+                        offset: const Offset(0, 3),
+                      ),
+                    ]
+                  : satisfied
+                  ? [
+                      BoxShadow(
+                        color: scheme.secondary.withOpacity(0.2),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ]
+                  : [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.06),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+            ),
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    dayFormatter.format(day).toUpperCase(),
+                    style: TextStyle(
+                      fontSize: diameter * 0.2,
+                      color: textColor,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.6,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: diameter * 0.22,
+                      vertical: diameter * 0.06,
+                    ),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(10),
+                      color: textColor.withOpacity(selected ? 0.22 : 0.14),
+                    ),
+                    child: Text(
+                      dateFormatter.format(day),
+                      style: TextStyle(
+                        fontSize: diameter * 0.22,
+                        letterSpacing: 0.3,
+                        color: textColor,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
 }
