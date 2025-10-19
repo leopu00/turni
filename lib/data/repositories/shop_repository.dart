@@ -30,6 +30,16 @@ class ShopColleaguesResult {
   bool get hasShop => shopId != null;
 }
 
+class ShopMembership {
+  const ShopMembership({
+    required this.id,
+    required this.name,
+  });
+
+  final String id;
+  final String name;
+}
+
 class ShopRepository {
   ShopRepository._();
   static final ShopRepository instance = ShopRepository._();
@@ -142,5 +152,32 @@ class ShopRepository {
         .delete()
         .eq('shop_id', shopId)
         .eq('profile_id', profileId);
+  }
+
+  Future<List<ShopMembership>> fetchShopsForCurrentUser() async {
+    final user = _db.auth.currentUser;
+    if (user == null) return const [];
+
+    final rows = await _db
+        .from('profile_shops')
+        .select('shop_id, shops(name)')
+        .eq('profile_id', user.id);
+
+    final memberships = <ShopMembership>[];
+    for (final row in rows) {
+      final shopId = row['shop_id'] as String?;
+      if (shopId == null) continue;
+      final shopMap = row['shops'] as Map<String, dynamic>?;
+      final rawName = shopMap != null ? shopMap['name'] as String? : null;
+      final name = (rawName?.trim().isNotEmpty ?? false)
+          ? rawName!.trim()
+          : 'Shop senza nome';
+      memberships.add(ShopMembership(id: shopId, name: name));
+    }
+
+    memberships.sort(
+      (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+    );
+    return memberships;
   }
 }

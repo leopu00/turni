@@ -31,7 +31,7 @@ class _AvailabilityPageState extends State<AvailabilityPage> {
   void initState() {
     super.initState();
     _startMonday = _computeNextMonday(DateTime.now());
-    _days = List.generate(14, (i) => _startMonday.add(Duration(days: i)));
+    _days = _generateDays(_startMonday, 14);
     // Precarica eventuali selezioni salvate per questo dipendente
     final store = AvailabilityStore.instance;
     final storedStart = store.startMonday;
@@ -47,16 +47,23 @@ class _AvailabilityPageState extends State<AvailabilityPage> {
   }
 
   DateTime _computeNextMonday(DateTime from) {
-    // weekday: Mon=1 ... Sun=7
-    final int wd = from.weekday;
-    final int daysUntilNextMonday =
-        8 - wd; // se oggi è lunedì -> 7; se domenica -> 1
-    final DateTime nextMonday = DateTime(
-      from.year,
-      from.month,
-      from.day,
-    ).add(Duration(days: daysUntilNextMonday));
-    return nextMonday;
+    final normalized = DateTime(from.year, from.month, from.day);
+    final diff = (DateTime.monday - normalized.weekday + 7) % 7;
+    final delta = diff == 0 ? 7 : diff;
+    return normalized.add(Duration(days: delta));
+  }
+
+  List<DateTime> _generateDays(DateTime start, int totalDays) {
+    final startLocal = DateTime(start.year, start.month, start.day);
+    final startUtc = DateTime.utc(
+      startLocal.year,
+      startLocal.month,
+      startLocal.day,
+    );
+    return List.generate(totalDays, (index) {
+      final utcDay = startUtc.add(Duration(days: index));
+      return DateTime(utcDay.year, utcDay.month, utcDay.day);
+    });
   }
 
   void _toggle(DateTime day) {
