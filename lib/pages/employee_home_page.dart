@@ -7,6 +7,9 @@ import '../widgets/brand_assets.dart';
 import 'employee_manual_shift_results_page.dart';
 import 'employee_online_page.dart';
 import 'login_page.dart';
+import 'my_shops_page.dart';
+import 'my_shifts_page.dart';
+import 'employee_stats_page.dart';
 import 'shop_colleagues_page.dart';
 
 class EmployeeHomePage extends StatelessWidget {
@@ -56,6 +59,19 @@ class EmployeeHomePage extends StatelessWidget {
           ),
         ],
       ),
+      drawer: _EmployeeDrawer(
+        displayName: displayName,
+        email: identifier,
+        onShopsTap: () {
+          Navigator.pop(context);
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const MyShopsPage(),
+            ),
+          );
+        },
+      ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -82,6 +98,44 @@ class EmployeeHomePage extends StatelessWidget {
           const SizedBox(height: 12),
           Card(
             child: ListTile(
+              leading: const Icon(Icons.event_available_outlined),
+              title: const Text('I miei turni'),
+              subtitle: const Text(
+                'Panoramica dei giorni assegnati nell’ultima generazione manuale.',
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const MyShiftsPage(),
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 12),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.query_stats_outlined),
+              title: const Text('Statistiche'),
+              subtitle: const Text(
+                'Analisi delle assegnazioni e delle disponibilità inviate.',
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const EmployeeStatsPage(),
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 12),
+          Card(
+            child: ListTile(
               leading: const Icon(Icons.calendar_month_outlined),
               title: const Text('Turni manuali salvati'),
               subtitle: const Text(
@@ -99,6 +153,66 @@ class EmployeeHomePage extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _EmployeeDrawer extends StatelessWidget {
+  const _EmployeeDrawer({
+    required this.displayName,
+    required this.onShopsTap,
+    this.email,
+  });
+
+  final String displayName;
+  final String? email;
+  final VoidCallback onShopsTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final headerColor = theme.colorScheme.primary;
+    final onHeaderColor = theme.colorScheme.onPrimary;
+
+    return Drawer(
+      child: SafeArea(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            Container(
+              color: headerColor,
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    displayName,
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      color: onHeaderColor,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  if (email != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      email!,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: onHeaderColor,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.store_outlined),
+              title: const Text('Shop'),
+              subtitle: const Text('Vedi gli shop a cui appartieni'),
+              onTap: onShopsTap,
+            ),
+          ],
+        ),
       ),
     );
   }
