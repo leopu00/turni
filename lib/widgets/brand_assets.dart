@@ -11,6 +11,8 @@ class BrandLogo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final devicePixelRatio = MediaQuery.of(context).devicePixelRatio;
+    final cacheWidth = (width * devicePixelRatio).round();
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final asset = isDark
         ? 'assets/branding/logo_dark_512.png'
@@ -18,8 +20,8 @@ class BrandLogo extends StatelessWidget {
     return Image.asset(
       asset,
       width: width,
+      cacheWidth: cacheWidth > 0 ? cacheWidth : null,
       fit: BoxFit.contain,
-      filterQuality: FilterQuality.high,
       semanticLabel: 'iTurni',
     );
   }
@@ -35,12 +37,14 @@ class BrandMark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final devicePixelRatio = MediaQuery.of(context).devicePixelRatio;
+    final cacheWidth = (size * devicePixelRatio).round();
     return Image.asset(
       'assets/branding/favicon_256.png',
       width: size,
       height: size,
+      cacheWidth: cacheWidth > 0 ? cacheWidth : null,
       fit: BoxFit.contain,
-      filterQuality: FilterQuality.high,
       semanticLabel: 'iTurni',
     );
   }
