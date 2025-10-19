@@ -2,12 +2,11 @@ import 'package:flutter/material.dart';
 import '../state/session_store.dart';
 import '../state/availability_store.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'availability_page.dart';
+
+import '../widgets/brand_assets.dart';
 import 'employee_manual_shift_results_page.dart';
-import 'latest_selection_results_page.dart';
+import 'employee_online_page.dart';
 import 'login_page.dart';
-import 'my_availability_page.dart';
-import 'my_shifts_page.dart';
 import 'shop_colleagues_page.dart';
 
 class EmployeeHomePage extends StatelessWidget {
@@ -23,8 +22,20 @@ class EmployeeHomePage extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Ciao, $displayName'),
+        title: BrandAppBarTitle(text: 'Ciao, $displayName'),
         actions: [
+          IconButton(
+            tooltip: 'Colleghi del mio negozio',
+            icon: const Icon(Icons.group_outlined),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const ShopColleaguesPage(),
+                ),
+              );
+            },
+          ),
           IconButton(
             tooltip: 'Logout',
             icon: const Icon(Icons.logout),
@@ -45,129 +56,49 @@ class EmployeeHomePage extends StatelessWidget {
           ),
         ],
       ),
-      body: Padding(
+      body: ListView(
         padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.edit_calendar_outlined),
-                title: const Text('Inserisci disponibilità'),
-                subtitle: const Text(
-                  'Seleziona i giorni disponibili (prossime 2 settimane)',
-                ),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => AvailabilityPage(
-                        employee: identifier ?? displayName,
-                        displayName: displayName,
-                      ),
-                    ),
-                  );
-                },
+        children: [
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.cloud_upload_outlined),
+              title: const Text('Invia disponibilità online'),
+              subtitle: Text(
+                count > 0
+                    ? 'Hai inviato $count giorni disponibili.'
+                    : 'Invia le tue disponibilità per essere selezionato.',
               ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const EmployeeOnlinePage(),
+                  ),
+                );
+              },
             ),
-            const SizedBox(height: 12),
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.event_available_outlined),
-                title: const Text('Disponibilità selezionate'),
-                subtitle: Text(
-                  count > 0
-                      ? 'Hai selezionato $count giorni'
-                      : 'Nessuna selezione ancora',
-                ),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const MyAvailabilityPage(),
-                    ),
-                  );
-                },
+          ),
+          const SizedBox(height: 12),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.calendar_month_outlined),
+              title: const Text('Turni manuali salvati'),
+              subtitle: const Text(
+                'Consulta l’ultima pianificazione manuale del tuo shop.',
               ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const EmployeeManualShiftResultsPage(),
+                  ),
+                );
+              },
             ),
-            const SizedBox(height: 12),
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.fact_check_outlined),
-                title: const Text('Risultato turni ultima selezione'),
-                subtitle: const Text(
-                  'Controlla l\'assegnazione più recente dei turni',
-                ),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const LatestSelectionResultsPage(),
-                    ),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 12),
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.schedule_outlined),
-                title: const Text('I miei turni attuali'),
-                subtitle: const Text(
-                  'Visualizza i turni della selezione corrente',
-                ),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const MyShiftsPage(),
-                    ),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 12),
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.calendar_month_outlined),
-                title: const Text('Turni manuali salvati'),
-                subtitle: const Text(
-                  'Consulta l\'ultima pianificazione manuale del tuo shop',
-                ),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const EmployeeManualShiftResultsPage(),
-                    ),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 12),
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.group_outlined),
-                title: const Text('Colleghi del mio negozio'),
-                subtitle: const Text(
-                  'Visualizza i rider associati al tuo shop',
-                ),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const ShopColleaguesPage(),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../data/repositories/shop_repository.dart';
 import '../models/supabase/profile.dart';
+import '../widgets/brand_assets.dart';
 
 class ShopColleaguesPage extends StatefulWidget {
   const ShopColleaguesPage({super.key});
@@ -30,7 +31,9 @@ class _ShopColleaguesPageState extends State<ShopColleaguesPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Colleghi del mio negozio')),
+      appBar: AppBar(
+        title: const BrandAppBarTitle(text: 'Colleghi del mio negozio'),
+      ),
       body: FutureBuilder<ShopColleaguesResult>(
         future: _future,
         builder: (context, snapshot) {

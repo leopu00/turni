@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../widgets/brand_assets.dart';
+
 class MyShiftsPage extends StatelessWidget {
   const MyShiftsPage({super.key});
 
@@ -7,7 +9,7 @@ class MyShiftsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('I miei turni attuali'),
+        title: const BrandAppBarTitle(text: 'I miei turni attuali'),
       ),
       body: const Center(
         child: Padding(

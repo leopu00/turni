@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../data/repositories/shop_repository.dart';
 import '../models/supabase/profile.dart';
+import '../widgets/brand_assets.dart';
 
 class BossManageEmployeesPage extends StatefulWidget {
   const BossManageEmployeesPage({super.key});
@@ -178,7 +179,7 @@ class _BossManageEmployeesPageState extends State<BossManageEmployeesPage> {
     final currentUserId = Supabase.instance.client.auth.currentUser?.id;
 
     return Scaffold(
-      appBar: AppBar(title: Text(title)),
+      appBar: AppBar(title: BrandAppBarTitle(text: title)),
       body: RefreshIndicator(
         onRefresh: _fetchEmployees,
         child: _loading

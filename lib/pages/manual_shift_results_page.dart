@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../data/repositories/manual_shift_repository.dart';
 import '../data/repositories/shop_repository.dart';
 import '../models/supabase/profile.dart';
+import '../widgets/brand_assets.dart';
 
 enum ManualShiftResultsExit { modify, goHome }
 
@@ -269,7 +270,7 @@ class _ManualShiftResultsPageState extends State<ManualShiftResultsPage> {
               }
             },
           ),
-          title: Text(widget.title),
+          title: BrandAppBarTitle(text: widget.title),
           actions: [
             IconButton(
               icon: const Icon(Icons.refresh),

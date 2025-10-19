@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../widgets/brand_assets.dart';
 import 'boss_overview_page.dart';
 
 class ShiftOnlineGenerationPage extends StatelessWidget {
@@ -8,7 +9,9 @@ class ShiftOnlineGenerationPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Genera da disponibilità online')),
+      appBar: AppBar(
+        title: const BrandAppBarTitle(text: 'Genera da disponibilità online'),
+      ),
       body: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(

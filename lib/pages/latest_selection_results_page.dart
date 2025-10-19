@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../widgets/brand_assets.dart';
+
 class LatestSelectionResultsPage extends StatelessWidget {
   const LatestSelectionResultsPage({super.key});
 
@@ -7,7 +9,7 @@ class LatestSelectionResultsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Risultato turni ultima selezione'),
+        title: const BrandAppBarTitle(text: 'Risultato turni ultima selezione'),
       ),
       body: const Center(
         child: Padding(

@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
 import '../data/repositories/availability_repository.dart';
 import '../models/supabase/profile.dart';
 import '../state/availability_store.dart';
 import '../state/session_store.dart';
+import '../widgets/brand_assets.dart';
 import 'login_page.dart';
 import 'requirements_page.dart';
 import 'riders_overview_page.dart';
@@ -123,7 +125,7 @@ class _BossPageState extends State<BossPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Boss'),
+        title: const BrandAppBarTitle(text: 'Boss'),
         actions: [
           IconButton(
             tooltip: 'Disponibilità per rider',

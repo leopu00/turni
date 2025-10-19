@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../state/session_store.dart';
-import '../state/availability_store.dart';
+
 import '../data/repositories/availability_repository.dart';
+import '../state/availability_store.dart';
+import '../state/session_store.dart';
+import '../widgets/brand_assets.dart';
 
 class MyAvailabilityPage extends StatelessWidget {
   const MyAvailabilityPage({super.key});
@@ -15,7 +17,7 @@ class MyAvailabilityPage extends StatelessWidget {
     final start = store.startMonday;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Le mie disponibilità')),
+      appBar: AppBar(title: const BrandAppBarTitle(text: 'Le mie disponibilità')),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: start == null
